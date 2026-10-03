@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CorroborIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">C</div>
+    <div>
+      <h1>CorroborIA</h1>
+      <p>Corroboration intelligente · Système A (RH) ↔ Système B (Temps)</p>
+    </div>
+  </div>
+  <div class="actions">
+    <span id="llmBadge" class="badge neutral" title="Fournisseur IA">IA : …</span>
+    <button class="btn ghost" id="toggleUpload">Charger des fichiers</button>
+    <button class="btn ghost" id="rerun">Relancer</button>
+    <a class="btn ghost" href="/api/export.csv">CSV</a>
+    <a class="btn primary" href="/api/export.xlsx">Exporter le rapport Excel</a>
+  </div>
+</header>
+
+<main>
+  <section id="uploadPanel" class="card upload hidden">
+    <h2>Lancer une corroboration</h2>
+    <p class="muted">Fichiers facultatifs : sans sélection, les extractions fournies sont utilisées. Les originaux ne sont jamais modifiés (copie temporaire, vérification sha256).</p>
+    <form id="uploadForm" class="upload-grid">
+      <label>Extraction source (Système A)<input type="file" name="source" accept=".xlsx,.xls"></label>
+      <label>Extraction cible (Système B)<input type="file" name="destination" accept=".xlsx,.xls"></label>
+      <label>Détail du poste<input type="file" name="detail" accept=".xlsx,.xls"></label>
+      <label>Motif de la situation d'emploi<input type="file" name="motif" accept=".xlsx,.xls"></label>
+      <label>Mapping<input type="file" name="mapping" accept=".xlsx,.xls"></label>
+      <label class="check"><input type="checkbox" name="use_llm" checked> Utiliser un LLM pour les cas ambigus (avec repli local)</label>
+      <button class="btn primary" type="submit">Lancer la corroboration</button>
+    </form>
+  </section>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid2">
+    <div class="card" id="synthCard">
+      <div class="card-head"><h2>Synthèse IA</h2><span class="muted small" id="synthProvider"></span></div>
+      <p id="synthText" class="lead"></p>
+      <div id="causes"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Comment le verdict est décidé</h2></div>
+      <ol class="pipeline">
+        <li><b>1 · Comparaison brute</b> — valeurs identiques après normalisation du format (dates sérielles ↔ ISO, vides, nombres, encodage).</li>
+        <li><b>2 · Règles métier</b> — règles du Mapping.xlsx : jointures Motif et Détail du poste, concaténations, types de contrat, situation d'emploi.</li>
+        <li><b>3 · Analyse IA</b> — cas non tranchés : détecteurs de patterns (anonymisation, défauts), ML scikit-learn, LLM avec repli automatique.</li>
+        <li><b>Expert</b> — une correction devient une règle apprise, appliquée aux cas similaires.</li>
+      </ol>
+      <div id="calibration"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar">
+      <div class="chips" id="verdictChips"></div>
+      <select id="fieldFilter"><option value="">Tous les champs</option></select>
+      <select id="levelFilter">
+        <option value="">Tous les niveaux</option>
+        <option value="1">1 · Comparaison</option>
+        <option value="2">2 · Règle métier</option>
+        <option value="3">3 · Analyse IA</option>
+        <option value="Expert">Expert</option>
+      </select>
+      <label class="check small"><input type="checkbox" id="reviewOnly"> À valider seulement</label>
+      <input type="search" id="search" placeholder="Matricule, champ, valeur…">
+    </div>
+    <div class="table-wrap">
+      <table id="table">
+        <thead><tr>
+          <th>Priorité</th><th>Verdict</th><th>Employé</th><th>Champ (B)</th>
+          <th>Valeur A</th><th>Attendue</th><th>Valeur B</th><th>Décidé par</th><th>Confiance</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="muted small" id="tableInfo"></p>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <div class="card-head"><h2>Couverture du mapping</h2></div>
+      <div id="coverage" class="table-wrap small-table"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Moteurs d'IA et traçabilité</h2></div>
+      <div id="providers" class="table-wrap small-table"></div>
+      <div id="mlInfo" class="muted small"></div>
+      <div id="integrity" class="muted small"></div>
+    </div>
+  </section>
+</main>
+
+<aside id="drawer" class="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div><span id="dVerdict" class="badge"></span> <span id="dReview"></span></div>
+    <button class="btn ghost" id="closeDrawer" aria-label="Fermer">✕</button>
+  </div>
+  <div id="drawerBody" class="drawer-body"></div>
+</aside>
+<div id="overlay" class="overlay hidden"></div>
+<div id="toast" class="toast hidden"></div>
+<div id="loading" class="loading hidden"><div class="spinner"></div><span>Corroboration en cours…</span></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
