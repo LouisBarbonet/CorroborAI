@@ -1,0 +1,25 @@
+{
+  "name": "corroboria",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CorroborIA — interface web (Vite), relais LLM Cloudflare et outillage",
+  "scripts": {
+    "dev": "node scripts/prepare-web.mjs && vite",
+    "build": "node scripts/prepare-web.mjs && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "snapshot": "python scripts/export_snapshot.py",
+    "precompute": "python scripts/precompute_chat.py",
+    "cache:clear": "node -e \"require('fs').rmSync('.cache/llm',{recursive:true,force:true});console.log('Cache LLM local vidé (.cache/llm)')\"",
+    "wrangler": "npx -y -p node@22 node node_modules/wrangler/bin/wrangler.js",
+    "worker:dev": "npm run wrangler -- dev --config worker/wrangler.toml",
+    "worker:deploy": "npm run wrangler -- deploy --config worker/wrangler.toml"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5",
+    "vite-plugin-singlefile": "^2.3.0",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.40.0"
+  }
+}

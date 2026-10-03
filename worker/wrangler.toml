@@ -1,0 +1,26 @@
+# Relais LLM de CorroborIA (distinct du relais nova360). La clé Gemini est un SECRET Cloudflare :
+#   npm run wrangler -- secret put GEMINI_API_KEY --config worker/wrangler.toml
+name = "corroboria-relais"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://louisbarbonet.github.io,http://localhost,http://127.0.0.1"
+DAILY_LIMIT = "100"
+GEMINI_MODEL = "gemini-flash-lite-latest"
+GEMINI_FALLBACK_MODEL = "gemini-flash-latest"
+
+# Cache des réponses (30 jours) + compteur quotidien
+[[kv_namespaces]]
+binding = "CACHE"
+id = "72952d638fd740ac9cef91e1605868b6"
+
+# Limite par adresse IP : 6 requêtes facturables par minute
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "2401"
+
+  [ratelimits.simple]
+  limit = 6
+  period = 60

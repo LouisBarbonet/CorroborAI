@@ -1,0 +1,5 @@
+# Données du défi : jamais de conversion de fins de ligne (contrôle sha256)
+*.xlsx binary
+*.pptx binary
+*.pdf binary
+corroborai-participants/manifest.json -text

@@ -1,0 +1,12 @@
+[
+  "Quelles sont les vraies anomalies à investiguer en priorité ?",
+  "Pourquoi le contractTypeCode de 2762457 est-il une anomalie ?",
+  "Quelle affectation manque dans le Système B ?",
+  "Pourquoi les courriels différents sont-ils des écarts justifiés ?",
+  "Pourquoi statusReasonCode passe de 807 à 170 pour 7603160 ?",
+  "Pourquoi les heures de 2911996 sont-elles à valider ?",
+  "Pourquoi assignmentStartDate utilise la date la plus récente ?",
+  "Comment l'IA est-elle utilisée dans CorroborIA ?",
+  "Comment est calculée la priorité d'une anomalie ?",
+  "Comment un expert peut-il corriger un verdict ?"
+]

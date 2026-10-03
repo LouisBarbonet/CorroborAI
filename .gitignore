@@ -1,10 +1,23 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-.env
-output/
-.idea/
 
-# Données du défi fournies par Loto-Québec (à placer localement, non versionnées)
-corroborai-participants/
+# Secrets (clé Gemini) — ne jamais versionner
+.env
+worker/.dev.vars
+
+# Sorties locales et caches
+output/
+.cache/
+
+# Node / build
+node_modules/
+dist/
+worker/.wrangler/
+web/public/py/
+web/public/data/
+
+# IDE
+.idea/

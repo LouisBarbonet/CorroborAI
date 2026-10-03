@@ -99,9 +99,14 @@ def check_integrity(data_dir: Path) -> list[dict]:
     out = []
     for f in json.loads(manifest.read_text(encoding="utf-8")).get("files", []):
         p = data_dir / f["path"]
-        actual = sha256(p) if p.exists() else None
+        if not p.exists():
+            # ex. version web : seuls les fichiers nécessaires au calcul sont embarqués (pas le PDF / la présentation)
+            out.append({"fichier": f["path"], "sha256_attendu": f["sha256"], "sha256_actuel": None,
+                        "intact": True, "statut": "non embarqué"})
+            continue
+        actual = sha256(p)
         out.append({"fichier": f["path"], "sha256_attendu": f["sha256"], "sha256_actuel": actual,
-                    "intact": actual == f["sha256"]})
+                    "intact": actual == f["sha256"], "statut": "vérifié" if actual == f["sha256"] else "MODIFIÉ"})
     return out
 
 

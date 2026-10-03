@@ -13,47 +13,22 @@ import json
 import os
 
 from ...models import ANOMALIE, JUSTIFIE
-from .base import DiskCache, LLMError, Provider, load_dotenv
+from .base import DiskCache, LLMError, Provider, load_dotenv, load_prompts
 from .claude import ClaudeProvider
 from .openai_compat import free_providers
 from .template import TemplateProvider
 
 DEFAULT_ORDER = "claude,ollama,groq,gemini,openrouter,pollinations,template"
 
-SYSTEM_JUDGE = """Tu es analyste en qualité des données RH chez Loto-Québec. Tu compares un système maître RH (Système A)
-et un système de gestion du temps (Système B). Les données sont anonymisées (noms, identifiants et libellés
-pseudonymisés de façon cohérente) et le Système B peut être un environnement de test.
-Pour chaque cas, une règle déterministe n'a pas suffi : décide s'il s'agit d'un « Écart justifié » (différence
-légitime : anonymisation cohérente, valeur par défaut documentée, préfixe d'environnement, format…) ou d'une
-« Anomalie » (vraie erreur de données à investiguer). Appuie-toi sur la règle du mapping et sur les signaux de
-l'analyse locale ; tu peux être en désaccord si les faits le justifient. Donne une confiance entre 0 et 1 et une
-justification factuelle en français (1 à 3 phrases) citant les valeurs. N'invente aucune donnée."""
+PROMPTS = load_prompts()
+SYSTEM_JUDGE = PROMPTS["judge_system"]
+SYSTEM_SUMMARY = PROMPTS["summary_system"]
+SYSTEM_CHAT = PROMPTS["chat_system"]
+JUDGE_SCHEMA = PROMPTS["judge_schema"]
+SUMMARY_SCHEMA = PROMPTS["summary_schema"]
+CHAT_SCHEMA = PROMPTS["chat_schema"]
 
-SYSTEM_SUMMARY = """Tu es analyste en qualité des données RH. À partir des statistiques d'anomalies d'une corroboration
-Système A (RH) ↔ Système B (Temps), rédige en français une synthèse exécutive (3-5 phrases) et regroupe les anomalies
-par cause racine probable avec une recommandation concrète d'investigation ou de correction. N'invente aucun chiffre."""
-
-JUDGE_SCHEMA = {
-    "type": "object",
-    "properties": {"cas": {"type": "array", "items": {
-        "type": "object",
-        "properties": {"id": {"type": "string"}, "verdict": {"type": "string", "enum": [JUSTIFIE, ANOMALIE]},
-                       "confiance": {"type": "number"}, "justification": {"type": "string"}},
-        "required": ["id", "verdict", "confiance", "justification"], "additionalProperties": False}}},
-    "required": ["cas"], "additionalProperties": False,
-}
-
-SUMMARY_SCHEMA = {
-    "type": "object",
-    "properties": {"resume": {"type": "string"}, "causes_racines": {"type": "array", "items": {
-        "type": "object",
-        "properties": {"cause": {"type": "string"}, "champs": {"type": "array", "items": {"type": "string"}},
-                       "nombre": {"type": "integer"}, "recommandation": {"type": "string"}},
-        "required": ["cause", "champs", "nombre", "recommandation"], "additionalProperties": False}}},
-    "required": ["resume", "causes_racines"], "additionalProperties": False,
-}
-
-BATCH = 20
+BATCH = 25  # = taille maximale acceptée par le relais Cloudflare
 
 
 def _norm_verdict(v: str) -> str | None:
@@ -93,6 +68,11 @@ class LLMRouter:
         return {"actif": active, "fournisseurs": rows, "ordre": [p.name for p in self.providers]}
 
     def _call(self, system: str, user: str, schema: dict, validate) -> tuple[dict, str]:
+        out, label, _ = self._call_ex(system, user, schema, validate)
+        return out, label
+
+    def _call_ex(self, system: str, user: str, schema: dict, validate) -> tuple[dict, str, bool]:
+        """Comme _call, mais indique aussi si la réponse provient du cache disque."""
         for p in self.providers:
             if isinstance(p, TemplateProvider):
                 break
@@ -104,12 +84,12 @@ class LLMRouter:
             if cached is not None:
                 self.trace.append({"fournisseur": p.label, "statut": "réponse rejouée depuis le cache"})
                 self.cache_hits += 1
-                return cached, p.label
+                return cached, p.label, True
             try:
                 out = validate(p.complete_json(system, user, schema))
                 self.cache.set(key, out)
                 self.trace.append({"fournisseur": p.label, "statut": "ok"})
-                return out, p.label
+                return out, p.label, False
             except (LLMError, ValueError, KeyError, TypeError) as e:
                 self.trace.append({"fournisseur": p.label, "statut": f"échec → repli : {e}"})
                 self._avail[p.name] = (False, f"échec à l'exécution : {e}")
@@ -154,3 +134,19 @@ class LLMRouter:
             return self._call(SYSTEM_SUMMARY, json.dumps(stats, ensure_ascii=False, indent=1), SUMMARY_SCHEMA, validate)
         except LLMError:
             return TemplateProvider.summarize(stats), TemplateProvider.name
+
+    def chat(self, messages: list[dict], context: str) -> dict:
+        """Assistant du jury : répond à partir du contexte du projet uniquement (même consigne que le relais)."""
+        system = SYSTEM_CHAT.replace("{{context}}", context)
+        convo = "\n\n".join(f"{'Question' if m['role'] == 'user' else 'Réponse précédente'} : {m['content']}" for m in messages)
+
+        def validate(out: dict) -> dict:
+            if not isinstance(out.get("reponse"), str) or not out["reponse"].strip():
+                raise ValueError("réponse vide")
+            return {"reponse": out["reponse"].strip()}
+
+        try:
+            out, provider, cached = self._call_ex(system, convo, CHAT_SCHEMA, validate)
+            return {"reponse": out["reponse"], "fournisseur": provider, "cached": cached}
+        except LLMError as e:
+            raise LLMError("Aucun LLM disponible pour le chat (configurer une clé, voir .env.example).") from e

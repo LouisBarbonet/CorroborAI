@@ -1,35 +1,47 @@
-"use strict";
+import "../style.css";
+import snapshot from "./generated/snapshot.json";
+import precomputed from "../../data/precomputed/chat.json";
+import questions from "../../data/chat-questions.json";
+import { ApiBackend, StaticBackend } from "./backends.js";
+import { initChat } from "./chat.js";
+import { $, esc } from "./util.js";
 
-const $ = (s, el = document) => el.querySelector(s);
-const esc = (v) => (v === null || v === undefined || v === "" ? "∅" : String(v))
-  .replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const VERDICTS = ["Anomalie", "Écart justifié", "Conforme"];
+const CHAT_URL = import.meta.env.VITE_CHAT_URL || "";
 const state = { verdict: "Anomalie", champ: "", niveau: "", q: "", review: false, summary: null };
+let backend;
 
-async function api(path, opts = {}) {
-  const r = await fetch(path, opts);
-  if (!r.ok) {
-    let msg = r.statusText;
-    try { msg = (await r.json()).detail || msg; } catch (_) { /* ignore */ }
-    throw new Error(msg);
-  }
-  return r.json();
-}
-
-function toast(msg) {
+function toast(msg, ms = 4000) {
   const t = $("#toast");
   t.textContent = msg;
   t.classList.remove("hidden");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.add("hidden"), 3500);
+  toast._t = setTimeout(() => t.classList.add("hidden"), ms);
 }
 
-const loading = (on) => $("#loading").classList.toggle("hidden", !on);
+function loading(on, msg = "Corroboration en cours…") {
+  $("#loading").classList.toggle("hidden", !on);
+  $("#loadingText").textContent = msg;
+}
+
 const vClass = (v) => v.split(" ")[0];
 function levelBadge(niveau, decidePar) {
   const k = niveau.startsWith("1") ? "lvl1" : niveau.startsWith("2") ? "lvl2" : niveau.startsWith("3") ? "lvl3" : "lvlE";
   const label = niveau.startsWith("Expert") ? "Expert" : niveau;
   return `<span class="badge ${k}" title="${esc(decidePar)}">${esc(label)}</span>`;
+}
+
+async function detectBackend() {
+  if (location.protocol.startsWith("http")) {
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 1500);
+      const r = await fetch("api/health", { signal: ctl.signal });
+      clearTimeout(timer);
+      if (r.ok && (await r.json()).backend === "python") return new ApiBackend();
+    } catch { /* pas de serveur Python : site statique */ }
+  }
+  return new StaticBackend(snapshot, CHAT_URL, (m) => loading(true, m));
 }
 
 // ------------------------------------------------------------------ résumé
@@ -56,8 +68,8 @@ function renderSummary(s) {
   const syn = s.synthese || {};
   $("#synthText").textContent = syn.resume || "";
   $("#synthProvider").textContent = syn.fournisseur ? `générée par : ${syn.fournisseur}` : "";
-  $("#causes").innerHTML = `<div class="causes">${(syn.causes_racines || []).map((c) =>
-    `<div class="cause"><b>${esc(c.cause)}</b> · ${esc(c.nombre)} cas · <span class="muted">${esc((c.champs || []).join(", "))}</span><br>${esc(c.recommandation)}</div>`).join("")}</div>`;
+  $("#causes").innerHTML = `<div class="causes">${(syn.causes_racines || []).map((cr) =>
+    `<div class="cause"><b>${esc(cr.cause)}</b> · ${esc(cr.nombre)} cas · <span class="muted">${esc((cr.champs || []).join(", "))}</span><br>${esc(cr.recommandation)}</div>`).join("")}</div>`;
 
   $("#calibration").innerHTML = (s.calibration_regles || []).map((cal) =>
     `<div class="callout"><b>Calibration de règle ${esc(cal.regle)}</b> — ${esc(cal.texte_mapping)}<br>
@@ -65,7 +77,7 @@ function renderSummary(s) {
 
   const sel = $("#fieldFilter");
   const cur = sel.value;
-  sel.innerHTML = `<option value="">Tous les champs</option>` + s.champs.map((c) => `<option>${esc(c)}</option>`).join("");
+  sel.innerHTML = `<option value="">Tous les champs</option>${s.champs.map((ch) => `<option>${esc(ch)}</option>`).join("")}`;
   sel.value = cur;
 
   const llm = s.llm || {};
@@ -73,18 +85,21 @@ function renderSummary(s) {
   const b = $("#llmBadge");
   b.textContent = `IA : ${used || "—"}`;
   b.title = (llm.fournisseurs || []).map((p) => `${p.fournisseur}: ${p.disponible ? "✓" : "✗"} ${p.detail}`).join("\n");
+  $("#modeBadge").textContent = backend.label;
 
   $("#coverage").innerHTML = `<table><thead><tr><th>Champ A</th><th>Champ B</th><th>Ligne</th><th>Statut</th></tr></thead><tbody>${
     s.couverture_mapping.map((r) => `<tr><td>${esc(r.champ_a)}</td><td>${esc(r.champ_b)}</td><td>${esc(r.ligne_excel)}</td><td>${esc(r.statut)}</td></tr>`).join("")}</tbody></table>`;
   $("#providers").innerHTML = `<table><thead><tr><th>Ordre</th><th>Fournisseur</th><th>Modèle</th><th>État</th><th>Local</th></tr></thead><tbody>${
     (llm.fournisseurs || []).map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.fournisseur)}</td><td>${esc(p.modele)}</td><td>${p.disponible ? "✓ " : "✗ "}${esc(p.detail)}</td><td>${p.local ? "oui" : "non"}</td></tr>`).join("")}</tbody></table>`;
   const ml = s.ml || {};
-  const cacheNote = llm.reponses_cache ? ` · ${llm.reponses_cache} réponse(s) LLM rejouée(s) depuis le cache` : "";
-  $("#mlInfo").innerHTML = `<p><b>LLM utilisé :</b> ${esc(used)}${esc(cacheNote)}</p>`;
-  $("#mlInfo").innerHTML += `<p><b>ML :</b> ${esc(ml.modele)} — ${esc(ml.exemples_entrainement)} exemples d'entraînement (verdicts déterministes)
+  const cacheNote = llm.instantane ? " · résultats de l'instantané embarqué (recalcul possible dans le navigateur)"
+    : llm.reponses_cache ? ` · ${llm.reponses_cache} réponse(s) LLM rejouée(s) depuis le cache` : "";
+  $("#mlInfo").innerHTML = `<p><b>LLM utilisé :</b> ${esc(used)}${esc(cacheNote)}</p>
+    <p><b>ML :</b> ${esc(ml.modele)} — ${esc(ml.exemples_entrainement)} exemples d'entraînement (verdicts déterministes)
     + ${esc(ml.corrections_expert)} correction(s) expert. Corrections expert actives : ${esc(s.corrections_expert)}.</p>`;
-  const intact = (s.integrite || []).every((i) => i.intact);
-  $("#integrity").innerHTML = `<p><b>Intégrité des sources :</b> ${intact ? "✓ fichiers inchangés (sha256 conformes au manifest)" : "⚠ écart sha256 détecté"} ·
+  const verified = (s.integrite || []).filter((i) => i.statut !== "non embarqué");
+  const intact = verified.every((i) => i.intact);
+  $("#integrity").innerHTML = `<p><b>Intégrité des sources :</b> ${intact ? `✓ ${verified.length} fichier(s) vérifié(s), inchangés (sha256 conformes au manifest)` : "⚠ écart sha256 détecté"} ·
     exécution du ${esc(s.date_execution)} (${esc(s.duree_s)} s)</p>`;
 }
 
@@ -94,20 +109,20 @@ function renderChips() {
   const opts = [["", "Tous", c.total], ...VERDICTS.map((v) => [v, v, c[v]])];
   $("#verdictChips").innerHTML = opts.map(([v, l, n]) =>
     `<button class="chip ${state.verdict === v ? "active" : ""}" data-v="${esc(v)}">${esc(l)} <span class="muted">${n ?? ""}</span></button>`).join("");
-  document.querySelectorAll(".chip").forEach((el) => el.addEventListener("click", () => {
+  document.querySelectorAll("#verdictChips .chip").forEach((el) => el.addEventListener("click", () => {
     state.verdict = el.dataset.v === "∅" ? "" : el.dataset.v;
     renderChips(); loadFindings();
   }));
 }
 
 async function loadFindings() {
-  const p = new URLSearchParams();
-  if (state.verdict) p.set("verdict", state.verdict);
-  if (state.champ) p.set("champ", state.champ);
-  if (state.niveau) p.set("niveau", state.niveau);
-  if (state.q) p.set("q", state.q);
-  if (state.review) p.set("a_valider", "true");
-  const rows = await api(`/api/findings?${p}`);
+  const p = {};
+  if (state.verdict) p.verdict = state.verdict;
+  if (state.champ) p.champ = state.champ;
+  if (state.niveau) p.niveau = state.niveau;
+  if (state.q) p.q = state.q;
+  if (state.review) p.a_valider = "true";
+  const rows = await backend.findings(p);
   $("#table tbody").innerHTML = rows.map((f) => {
     const differs = f.valeur_attendue !== f.valeur_b;
     return `<tr data-id="${esc(f.id)}">
@@ -126,9 +141,7 @@ async function loadFindings() {
 }
 
 // ------------------------------------------------------------------ détail
-function jsonBlock(obj) {
-  return `<pre class="json">${esc(JSON.stringify(obj, null, 2))}</pre>`;
-}
+const jsonBlock = (obj) => `<pre class="json">${esc(JSON.stringify(obj, null, 2))}</pre>`;
 
 function historyTable(h) {
   if (!Array.isArray(h) || !h.length) return "";
@@ -137,7 +150,7 @@ function historyTable(h) {
 }
 
 async function openFinding(id) {
-  const f = await api(`/api/findings/${encodeURIComponent(id)}`);
+  const f = await backend.finding(id);
   $("#dVerdict").className = `badge ${vClass(f.verdict)}`;
   $("#dVerdict").textContent = f.verdict;
   $("#dReview").innerHTML = `${f.a_valider ? '<span class="badge review">à valider</span> ' : ""}${levelBadge(f.niveau, f.decide_par)}
@@ -151,6 +164,8 @@ async function openFinding(id) {
   const local = ia.analyse_locale ? `<p><b>Analyse locale</b> : ${esc(ia.analyse_locale.verdict)} (${Math.round(ia.analyse_locale.confiance * 100)} %)</p>` : "";
   const ml = ia.ml_proba_anomalie !== undefined ? `<p><b>Modèle ML</b> : P(anomalie) = ${Math.round(ia.ml_proba_anomalie * 100)} %${ia.atypicite !== undefined ? ` · atypicité ${Math.round(ia.atypicite * 100)} %` : ""}</p>` : "";
   const before = ia.avant_expert ? `<p class="callout">Verdict initial : <b>${esc(ia.avant_expert.verdict)}</b> (${esc(ia.avant_expert.decide_par)}) — ${esc(ia.avant_expert.justification)}</p>` : "";
+  const engineNote = backend.mode === "static" && !backend.engineRan
+    ? "La première correction démarre le moteur Python dans votre navigateur (≈ 20-40 s la première fois, puis mis en cache)." : "";
 
   $("#drawerBody").innerHTML = `
     <div>
@@ -184,22 +199,19 @@ async function openFinding(id) {
         </div>
         <textarea name="commentaire" rows="2" placeholder="Justification de la correction (sera tracée dans le rapport)"></textarea>
         <div class="row"><button class="btn primary" type="submit">Enregistrer la correction</button>
-        <span class="muted small">La correction est conservée et réappliquée aux prochaines exécutions. Elle sert aussi à réentraîner le modèle ML.</span></div>
+        <span class="muted small">La correction est conservée et réappliquée aux prochaines exécutions. Elle sert aussi à réentraîner le modèle ML. ${esc(engineNote)}</span></div>
       </form></section>`;
   $("#fbForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    loading(true);
+    loading(true, "Enregistrement de la correction…");
     try {
-      const out = await api("/api/feedback", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ finding_id: f.id, verdict: fd.get("verdict"), portee: fd.get("portee"),
-          commentaire: fd.get("commentaire"), auteur: fd.get("auteur") || "expert" }),
-      });
+      const out = await backend.feedback({ finding_id: f.id, verdict: fd.get("verdict"), portee: fd.get("portee"),
+        commentaire: fd.get("commentaire"), auteur: fd.get("auteur") || "expert" });
       toast(`Correction enregistrée : ${out.constats_impactes.length} constat(s) désormais décidés par un expert.`);
       await refresh();
       openFinding(f.id);
-    } catch (err) { toast(`Erreur : ${err.message}`); } finally { loading(false); }
+    } catch (err) { toast(`Erreur : ${err.message}`, 8000); } finally { loading(false); }
   });
   $("#drawer").classList.add("open");
   $("#overlay").classList.remove("hidden");
@@ -212,7 +224,7 @@ function closeDrawer() {
 
 // ------------------------------------------------------------------ actions
 async function refresh() {
-  renderSummary(await api("/api/summary"));
+  renderSummary(await backend.summary());
   renderChips();
   await loadFindings();
 }
@@ -221,23 +233,44 @@ async function runCorroboration(formData) {
   loading(true);
   try {
     const useLlm = formData ? formData.get("use_llm") === "on" : true;
-    const body = new FormData();
+    const files = {};
     if (formData) for (const k of ["source", "destination", "detail", "motif", "mapping"]) {
       const f = formData.get(k);
-      if (f && f.size) body.append(k, f);
+      if (f && f.size) files[k] = f;
     }
-    renderSummary(await api(`/api/run?use_llm=${useLlm}`, { method: "POST", body }));
-    renderChips();
-    await loadFindings();
+    await backend.run({ files, useLlm });
+    await refresh();
     toast("Corroboration terminée.");
-  } catch (err) { toast(`Erreur : ${err.message}`); } finally { loading(false); }
+  } catch (err) { toast(`Erreur : ${err.message}`, 8000); } finally { loading(false); }
+}
+
+async function exportFile(kind) {
+  loading(true, kind === "xlsx" ? "Génération du rapport Excel…" : "Génération du CSV…");
+  try { await backend.exportFile(kind); } catch (err) { toast(`Erreur : ${err.message}`, 8000); } finally { loading(false); }
+}
+
+async function onCite(ref) {
+  if (ref.startsWith("R-")) {
+    const txt = state.summary?.catalogue_regles?.[ref] || (ref === "R-NORMALISATION" ? "Valeur identique après réparation de l'encodage." : "");
+    toast(`${ref} — ${txt || "règle du catalogue"}`, 7000);
+    return;
+  }
+  const [mat, champ] = ref.split("/");
+  const rows = await backend.findings({ q: mat });
+  const f = rows.find((r) => r.matricule === mat && r.champ_b.replace(/[()]/g, "") === champ);
+  if (f) openFinding(f.id);
+  else toast(`Repère introuvable : ${ref}`);
 }
 
 let searchTimer;
 document.addEventListener("DOMContentLoaded", async () => {
+  backend = await detectBackend();
+  document.body.dataset.mode = backend.mode;
   $("#toggleUpload").addEventListener("click", () => $("#uploadPanel").classList.toggle("hidden"));
   $("#uploadForm").addEventListener("submit", (e) => { e.preventDefault(); runCorroboration(new FormData(e.target)); });
   $("#rerun").addEventListener("click", () => runCorroboration(null));
+  $("#exportXlsx").addEventListener("click", () => exportFile("xlsx"));
+  $("#exportCsv").addEventListener("click", () => exportFile("csv"));
   $("#fieldFilter").addEventListener("change", (e) => { state.champ = e.target.value; loadFindings(); });
   $("#levelFilter").addEventListener("change", (e) => { state.niveau = e.target.value; loadFindings(); });
   $("#reviewOnly").addEventListener("change", (e) => { state.review = e.target.checked; loadFindings(); });
@@ -248,6 +281,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("#closeDrawer").addEventListener("click", closeDrawer);
   $("#overlay").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
-  loading(true);
-  try { await refresh(); } catch (err) { toast(`Erreur : ${err.message}`); } finally { loading(false); }
+  if (backend.mode === "static") $("#uploadHint").textContent =
+    "Version web : les fichiers sont traités localement dans votre navigateur par le moteur Python (Pyodide) ; rien n'est envoyé à un serveur, hormis les cas ambigus anonymisés transmis au relais LLM.";
+  initChat({ backend, precomputed, questions, onCite });
+  Object.assign(window, { openFinding, closeDrawer, corroboria: { backend: () => backend } });
+
+  loading(true, "Chargement…");
+  try {
+    await refresh();
+    if (backend.mode === "static" && backend.feedbackList().length) {
+      loading(true, "Application de vos corrections expert enregistrées…");
+      await backend.compute();
+      await refresh();
+    }
+  } catch (err) { toast(`Erreur : ${err.message}`, 8000); } finally { loading(false); }
 });

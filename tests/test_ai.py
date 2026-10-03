@@ -43,8 +43,9 @@ class EchoProvider(Provider):
 def make_router(*providers):
     r = LLMRouter(order="template")
     r.providers = [*providers, r.providers[-1]]
-    r.cache.data = {}
-    r.cache.path = r.cache.path.with_name("_test_cache.json")
+    import tempfile
+    from pathlib import Path
+    r.cache.dir = Path(tempfile.mkdtemp())
     return r
 
 

@@ -12,7 +12,10 @@ from __future__ import annotations
 import json
 import os
 
-import httpx
+try:  # absent dans le navigateur (Pyodide) : le relais Cloudflare est alors utilisé
+    import httpx
+except ImportError:  # pragma: no cover
+    httpx = None
 
 from .base import LLMError, Provider, parse_json
 
@@ -36,6 +39,8 @@ class OpenAICompatProvider(Provider):
     def available(self) -> tuple[bool, str]:
         if self.enable_env and os.environ.get(self.enable_env, "0") != "1":
             return False, f"désactivé (définir {self.enable_env}=1)"
+        if httpx is None:
+            return False, "httpx indisponible (navigateur)"
         if self.key_env and not os.environ.get(self.key_env):
             return False, f"{self.key_env} non définie"
         if self.name == "ollama":

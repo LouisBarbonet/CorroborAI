@@ -1,30 +1,35 @@
-"""API FastAPI + service de l'interface web.
+"""API FastAPI + service de l'interface web (build Vite dans dist/).
 
-Lancement :  uvicorn api.main:app --reload   puis http://127.0.0.1:8000
+Lancement :  npm run build  puis  uvicorn api.main:app   →  http://127.0.0.1:8000
+Développement de l'interface :  npm run dev  (Vite, proxy /api → 127.0.0.1:8000)
 """
 from __future__ import annotations
 
+import re
 import shutil
 import tempfile
 import threading
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from corroborai import serialize
 from corroborai.ai.feedback import FeedbackStore
 from corroborai.ai.llm import LLMRouter
+from corroborai.ai.llm.base import LLMError
+from corroborai.chat_context import build_context, citable_refs
 from corroborai.engine import Engine, Result
 from corroborai.models import VERDICTS
 from corroborai.report import build_csv, build_excel
 
 ROOT = Path(__file__).resolve().parent.parent
-WEB = ROOT / "web"
+DIST = ROOT / "dist"
 
-app = FastAPI(title="CorroborIA", version="1.0.0", description="Corroboration intelligente Système A (RH) ↔ Système B (Temps)")
-_state: dict = {"result": None, "paths": None, "use_llm": True}
+app = FastAPI(title="CorroborIA", version="1.1.0", description="Corroboration intelligente Système A (RH) ↔ Système B (Temps)")
+_state: dict = {"result": None, "paths": None, "use_llm": True, "context": None}
 _lock = threading.Lock()
 feedback = FeedbackStore()
 
@@ -32,7 +37,7 @@ feedback = FeedbackStore()
 def _run(paths=None, use_llm: bool = True) -> Result:
     with _lock:
         res = Engine(router=LLMRouter(), feedback=feedback, use_llm=use_llm).run(paths)
-        _state.update(result=res, paths=paths, use_llm=use_llm)
+        _state.update(result=res, paths=paths, use_llm=use_llm, context=None)
         return res
 
 
@@ -40,14 +45,9 @@ def _result() -> Result:
     return _state["result"] or _run()
 
 
-def _summary(res: Result) -> dict:
-    m = res.meta
-    return {"compteurs": res.counts(), "date_execution": m["date_execution"], "duree_s": m["duree_s"],
-            "synthese": m["synthese"], "calibration_regles": m["calibration_regles"], "llm": m["llm"], "ml": m["ml"],
-            "integrite": m["integrite"], "couverture_mapping": m["couverture_mapping"], "nb_lignes": m["nb_lignes"],
-            "appariement": m["appariement"], "corrections_expert": m["corrections_expert"],
-            "catalogue_regles": m["catalogue_regles"], "fichiers": {k: Path(v).name for k, v in m["fichiers"].items()},
-            "champs": sorted({f.champ_b for f in res.findings})}
+@app.get("/api/health")
+def health():
+    return {"ok": True, "backend": "python"}
 
 
 @app.post("/api/run")
@@ -71,12 +71,12 @@ async def run(use_llm: bool = True, source: UploadFile | None = File(None), dest
         res = _run(paths, use_llm)
     except (FileNotFoundError, KeyError, ValueError) as e:
         raise HTTPException(400, f"Fichiers invalides : {e}") from e
-    return _summary(res)
+    return serialize.summary(res)
 
 
 @app.get("/api/summary")
 def summary():
-    return _summary(_result())
+    return serialize.summary(_result())
 
 
 @app.get("/api/findings")
@@ -94,9 +94,7 @@ def findings(verdict: str | None = None, champ: str | None = None, q: str | None
             continue
         if q and q.lower() not in f"{f.matricule} {f.employe} {f.champ_b} {f.valeur_a} {f.valeur_b} {f.justification}".lower():
             continue
-        out.append({k: getattr(f, k) for k in ("id", "priorite", "verdict", "a_valider", "matricule", "employe", "type_affectation",
-                                               "code_poste", "champ_a", "champ_b", "valeur_a", "valeur_attendue", "valeur_b",
-                                               "niveau", "decide_par", "regle_id", "confiance", "justification")})
+        out.append(serialize.finding_row(f))
     return out
 
 
@@ -144,6 +142,33 @@ def clear_feedback():
     return {"ok": True}
 
 
+class ChatMessage(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=800)
+
+
+class ChatIn(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=8)
+
+
+@app.post("/api/chat")
+def chat(body: ChatIn):
+    """Chat du jury (même consigne que le relais Cloudflare). Réponses identiques servies depuis .cache/llm/."""
+    if body.messages[-1].role != "user":
+        raise HTTPException(400, "Le dernier message doit être une question.")
+    res = _result()
+    if _state["context"] is None:
+        _state["context"] = build_context(res)
+    try:
+        out = LLMRouter().chat([m.model_dump() for m in body.messages], _state["context"])
+    except LLMError as e:
+        raise HTTPException(503, str(e)) from e
+    # Repères inventés par le modèle : crochets retirés (même traitement que le relais Cloudflare)
+    reperes = citable_refs(res)
+    out["reponse"] = re.sub(r"\[([^\[\]\n]{1,80})\]", lambda m: m.group(0) if m.group(0) in reperes else m.group(1), out["reponse"])
+    return out
+
+
 @app.get("/api/llm-status")
 def llm_status():
     return LLMRouter().status()
@@ -163,7 +188,11 @@ def export_csv(verdict: str | None = None):
 
 @app.get("/")
 def index():
-    return FileResponse(WEB / "index.html")
+    if (DIST / "index.html").exists():
+        return FileResponse(DIST / "index.html")
+    return HTMLResponse("<h1>Interface non construite</h1><p>Lancez <code>npm install</code> puis <code>npm run build</code>, "
+                        "ou utilisez <code>npm run dev</code>. L'API est disponible sous <a href='/docs'>/docs</a>.</p>")
 
 
-app.mount("/static", StaticFiles(directory=WEB), name="static")
+if DIST.exists():
+    app.mount("/", StaticFiles(directory=DIST), name="static")

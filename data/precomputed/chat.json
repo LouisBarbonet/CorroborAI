@@ -1,0 +1,55 @@
+{
+ "genere_le": "2026-10-03T18:19:29",
+ "reponses": [
+  {
+   "question": "Quelles sont les vraies anomalies à investiguer en priorité ?",
+   "reponse": "Les anomalies identifiées incluent notamment l'absence d'affectation temporaire [1545850/affectation], des écarts sur la date d'effet de l'affectation [9989151/assignmentStartDate], des erreurs de dérivation de type de contrat [2762457/contractTypeCode], des incohérences de code site/libellé [3241002/siteName], ainsi que des heures dérogatoires non transmises [2911996/weeklyHoursOverride].",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Pourquoi le contractTypeCode de 2762457 est-il une anomalie ?",
+   "reponse": "Pour le matricule 2762457, l'anomalie sur le champ contractTypeCode (règle [R-CONTRACT]) provient du fait que le code reçu « WHX » correspond à la condition « SI EMPTP_CD=\"O\" (Occasionnel - Surnuméraire) --> Mettre \"WHX\" », alors que la source indique {'EMPTP_CD': 'V', 'PERM_IND': '1', 'FT_IND': '1'} (ce qui donne « JWN ») [2762457/contractTypeCode]. Le type d'employé n'a pas été mis à jour ou a été mal dérivé.",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Quelle affectation manque dans le Système B ?",
+   "reponse": "L'affectation manquante dans le Système B est l'affectation temporaire (poste 45985, emploi 6585, entrée 2025-09-22) pour l'employé Pre1545850 Nom1545850 [1545850/affectation], selon la règle [R-RECORD].",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Pourquoi les courriels différents sont-ils des écarts justifiés ?",
+   "reponse": "Les écarts sur les courriels (contactEmail) sont classés comme justifiés selon la règle [R-EMAIL] et validés par l'analyse IA (patterns locaux + LLM). Par exemple, pour le cas [1545850/contactEmail], l'adresse dans le Système B comporte un préfixe d'environnement (ex. « dev-08-v2_ ») et un identifiant pseudonymisé, mais elle respecte la structure globale et le domaine attendu (@loto-quebec.com).",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Pourquoi statusReasonCode passe de 807 à 170 pour 7603160 ?",
+   "reponse": "Pour l'employé 7603160, cet écart sur le champ statusReasonCode est un écart justifié [7603160/statusReasonCode] régi par la règle [R-STATUS-CAD] : en cas d'absence (code 2), on effectue une jointure sur le motif où le CodeRaisonStatut 807 donne par correspondance le code Remphor 170.",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Pourquoi les heures de 2911996 sont-elles à valider ?",
+   "reponse": "Pour l'employé 2911996, les heures sont à valider (priorité 69 pour weeklyHoursOverride [2911996/weeklyHoursOverride] et 66 pour dailyHoursOverride [2911996/dailyHoursOverride]) car le Système B conserve les heures contractuelles du poste (40/8) au lieu de la norme de l'employé (35/7) : l'override ne semble pas transmis [2911996/weeklyHoursOverride] [2911996/dailyHoursOverride]. C'est à confirmer, car un horaire réduit peut être géré autrement.",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Pourquoi assignmentStartDate utilise la date la plus récente ?",
+   "reponse": "La date la plus récente est retenue pour assignmentStartDate suite à la calibration [R-ASSIGN-START] : face aux options du mapping (date calculée du changement d'unité administrative vs date d'effet poste), les données du Système B suivent massivement l'interprétation « plus récente » (19/22) contre 0/22 pour la littérale (plus ancienne), menant au paramètre ASSIGN_START_MODE (à confirmer avec l'équipe fonctionnelle) [R-ASSIGN-START].",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Comment l'IA est-elle utilisée dans CorroborIA ?",
+   "reponse": "L'IA est utilisée dans CorroborIA pour : a) arbitrer les écarts non tranchés par les règles au niveau 3 (courriels et libellés pseudonymisés, heures), b) diagnostiquer la cause probable des anomalies, c) prioriser les cas via scikit-learn (LogisticRegression et IsolationForest), d) rédiger la synthèse par cause racine avec Gemini, e) calibrer une règle ambiguë contre les données, et f) apprendre des corrections apportées par les experts.",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Comment est calculée la priorité d'une anomalie ?",
+   "reponse": "La priorité d'une anomalie (0-100) est calculée ainsi : 100 × (0,50 × criticité métier du champ + 0,25 × confiance + 0,10 × P(anomalie) du modèle ML + 0,10 × atypicité IsolationForest + 0,05 × concentration d'anomalies chez le même employé).",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  },
+  {
+   "question": "Comment un expert peut-il corriger un verdict ?",
+   "reponse": "Un expert peut corriger un verdict (cas ou motif) et cette correction devient une règle apprise. La correction expert peut viser un cas unique ou tous les cas du même motif.",
+   "fournisseur": "gemini/gemini-flash-lite-latest"
+  }
+ ]
+}
