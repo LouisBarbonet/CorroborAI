@@ -209,7 +209,7 @@ API : `POST /api/run`, `GET /api/summary`, `GET /api/findings`, `GET /api/findin
 - Les détecteurs de pseudonymisation sont adaptés aux données anonymisées du défi. En production, avec des données réelles, la règle du courriel serait vérifiée strictement.
 - La qualité des justifications LLM dépend du fournisseur. Les petits modèles locaux sont moins précis, d'où la fusion avec l'analyse locale et le marquage « à valider » en cas de désaccord.
 - Le stockage des corrections expert est un fichier JSON local (ou le navigateur en ligne), sans gestion multi-utilisateur.
-- Version en ligne : le premier recalcul télécharge Pyodide et ses bibliothèques (≈ 30-50 s, puis cache du navigateur) ;
+- Version en ligne : le premier recalcul télécharge Pyodide et ses bibliothèques (≈ 30 à 90 s selon la connexion, puis cache du navigateur) ;
   le chat dépend du quota du relais (100 requêtes/jour, 6/min par IP), mais les questions d'exemple restent toujours disponibles.
   Le contexte du chat décrit les extractions fournies, pas les fichiers téléversés par un visiteur.
 

@@ -39,7 +39,7 @@ motif**), un commentaire, puis « Enregistrer ». Exemple : heures de 2911996 �
 les 6 cas d'heures basculent en « Expert — règle apprise » et les anomalies passent de 16 à 10.
 
 > Version en ligne : la première correction démarre le **moteur Python dans votre navigateur** (Pyodide) : environ
-> 30 à 50 secondes la première fois (téléchargement de pandas et scikit-learn), quelques secondes ensuite. Vos
+> 30 à 90 secondes la première fois selon la connexion (téléchargement de pandas et scikit-learn), quelques secondes ensuite. Vos
 > corrections sont conservées dans votre navigateur et réappliquées à la prochaine visite. Pour repartir de zéro,
 > effacez les données du site dans votre navigateur.
 

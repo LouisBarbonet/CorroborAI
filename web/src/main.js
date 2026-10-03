@@ -165,7 +165,7 @@ async function openFinding(id) {
   const ml = ia.ml_proba_anomalie !== undefined ? `<p><b>Modèle ML</b> : P(anomalie) = ${Math.round(ia.ml_proba_anomalie * 100)} %${ia.atypicite !== undefined ? ` · atypicité ${Math.round(ia.atypicite * 100)} %` : ""}</p>` : "";
   const before = ia.avant_expert ? `<p class="callout">Verdict initial : <b>${esc(ia.avant_expert.verdict)}</b> (${esc(ia.avant_expert.decide_par)}) — ${esc(ia.avant_expert.justification)}</p>` : "";
   const engineNote = backend.mode === "static" && !backend.engineRan
-    ? "La première correction démarre le moteur Python dans votre navigateur (≈ 20-40 s la première fois, puis mis en cache)." : "";
+    ? "La première correction démarre le moteur Python dans votre navigateur (≈ 30 à 90 s la première fois, puis mis en cache)." : "";
 
   $("#drawerBody").innerHTML = `
     <div>
