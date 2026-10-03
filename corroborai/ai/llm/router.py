@@ -76,6 +76,7 @@ class LLMRouter:
             self.providers.append(TemplateProvider())
         self.cache = DiskCache()
         self.trace: list[dict] = []
+        self.cache_hits = 0
         self._avail: dict[str, tuple[bool, str]] = {}
 
     def _available(self, p: Provider) -> tuple[bool, str]:
@@ -101,7 +102,9 @@ class LLMRouter:
             key = DiskCache.key(p.label, system, user, json.dumps(schema, sort_keys=True))
             cached = self.cache.get(key)
             if cached is not None:
-                return cached, p.label + " (cache)"
+                self.trace.append({"fournisseur": p.label, "statut": "réponse rejouée depuis le cache"})
+                self.cache_hits += 1
+                return cached, p.label
             try:
                 out = validate(p.complete_json(system, user, schema))
                 self.cache.set(key, out)

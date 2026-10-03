@@ -79,7 +79,9 @@ function renderSummary(s) {
   $("#providers").innerHTML = `<table><thead><tr><th>Ordre</th><th>Fournisseur</th><th>Modèle</th><th>État</th><th>Local</th></tr></thead><tbody>${
     (llm.fournisseurs || []).map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.fournisseur)}</td><td>${esc(p.modele)}</td><td>${p.disponible ? "✓ " : "✗ "}${esc(p.detail)}</td><td>${p.local ? "oui" : "non"}</td></tr>`).join("")}</tbody></table>`;
   const ml = s.ml || {};
-  $("#mlInfo").innerHTML = `<p><b>ML :</b> ${esc(ml.modele)} — ${esc(ml.exemples_entrainement)} exemples d'entraînement (verdicts déterministes)
+  const cacheNote = llm.reponses_cache ? ` · ${llm.reponses_cache} réponse(s) LLM rejouée(s) depuis le cache` : "";
+  $("#mlInfo").innerHTML = `<p><b>LLM utilisé :</b> ${esc(used)}${esc(cacheNote)}</p>`;
+  $("#mlInfo").innerHTML += `<p><b>ML :</b> ${esc(ml.modele)} — ${esc(ml.exemples_entrainement)} exemples d'entraînement (verdicts déterministes)
     + ${esc(ml.corrections_expert)} correction(s) expert. Corrections expert actives : ${esc(s.corrections_expert)}.</p>`;
   const intact = (s.integrite || []).every((i) => i.intact);
   $("#integrity").innerHTML = `<p><b>Intégrité des sources :</b> ${intact ? "✓ fichiers inchangés (sha256 conformes au manifest)" : "⚠ écart sha256 détecté"} ·
