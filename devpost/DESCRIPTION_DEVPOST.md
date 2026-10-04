@@ -32,7 +32,7 @@ CorroborIA compare les deux extractions selon le fichier de mapping et classe ch
 
 Chaque verdict montre la valeur source, la valeur attendue selon la règle et la valeur reçue, le **niveau de décision** (comparaison, règle métier, IA ou expert), le texte de la règle avec sa ligne dans `Mapping.xlsx`, les preuves (lignes de jointure, historique du poste), une confiance, une priorité et la cause probable.
 
-Les résultats se consultent dans une interface web (en ligne, sans installation) et s'exportent en **rapport Excel de 10 onglets** ou CSV ; le rapport généré est aussi publié dans le dépôt. Les cas ambigus sont arbitrés par **Google Gemini**, qui rédige aussi la synthèse par cause racine, et un **assistant IA** répond aux questions du jury en citant ses sources.
+Les résultats se consultent dans une interface web (en ligne, sans installation) et s'exportent en **rapport Excel de 10 onglets** ou CSV ; les **résultats finaux sont publiés dans le dépôt** (`rapport/RESULTATS.md`, Excel, CSV) pour une évaluation sans exécuter le code. Les cas ambigus sont arbitrés par **Google Gemini**, qui rédige aussi la synthèse par cause racine, et un **assistant IA** répond aux questions du jury en citant ses sources.
 
 ## How we built it
 
@@ -99,6 +99,7 @@ python · pandas · scikit-learn · numpy · fastapi · uvicorn · javascript ·
 
 - Démo en ligne : https://louisbarbonet.github.io/CorroborAI/
 - Code source : https://github.com/LouisBarbonet/CorroborAI
+- Résultats finaux (lisibles sur GitHub) : https://github.com/LouisBarbonet/CorroborAI/blob/main/rapport/RESULTATS.md
 - Rapport de corroboration (Excel) : https://github.com/LouisBarbonet/CorroborAI/blob/main/rapport/rapport_corroboration.xlsx
 
 ## Project Media — image gallery (ordre suggéré, format 3:2)

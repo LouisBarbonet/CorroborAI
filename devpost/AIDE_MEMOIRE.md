@@ -7,7 +7,7 @@
 - [ ] Ouvrir le site **5 minutes avant** et cliquer « Relancer » une fois : le moteur Python se charge (30-90 s), il sera ensuite instantané.
 - [ ] Vider les corrections de test : réglages du navigateur → données du site, ou console : `localStorage.clear()`.
 - [ ] Préparer un 2e onglet sur le panneau 2762457 · contractTypeCode (au cas où).
-- [ ] Préparer le rapport Excel déjà téléchargé (plan B si le réseau est lent).
+- [ ] Ouvrir un 2e onglet sur `rapport/RESULTATS.md` (GitHub) et garder le rapport Excel téléchargé (plans B si le réseau est lent).
 - [ ] Vérifier le relais : https://corroboria-relais.louis-barbonet.workers.dev/health → `"ok":true`.
 - [ ] Zoom du navigateur à 110-125 % pour la lisibilité à l'écran.
 

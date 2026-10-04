@@ -5,6 +5,10 @@ métier du mapping et classe chaque écart en **Conforme**, **Écart justifié**
 accompagné de la règle appliquée, des preuves utilisées et d'une justification lisible. Le rapport final met en
 évidence uniquement les vraies erreurs de données, triées par priorité.
 
+**📊 Résultats finaux (sans exécuter le code) : [`rapport/RESULTATS.md`](rapport/RESULTATS.md)** — synthèse, 57 anomalies
+priorisées et expliquées, écarts justifiés ; rapport complet [`rapport/rapport_corroboration.xlsx`](rapport/rapport_corroboration.xlsx)
+et CSV dans [`rapport/`](rapport/).
+
 **▶ Démo en ligne : https://louisbarbonet.github.io/CorroborAI/** (aucune installation ; mode d'emploi : [MODE_EMPLOI.md](MODE_EMPLOI.md))
 
 ## Résultat sur les extractions fournies
@@ -17,7 +21,8 @@ accompagné de la règle appliquée, des preuves utilisées et d'une justificati
 | **Écart justifié** | 133 | Jointure Motif (807 → code Remphor 170), concaténations `divisionName`, dérivation du type de contrat, P/A/S → booléens, dates d'affectation issues de la règle transformée (9989151, 4402456, 3241002), encodage `Absence complÃ¨te`, heures par défaut du poste |
 | **Conforme** | 361 | Dates sérielles Excel ≡ ISO, codes, libellés identiques |
 
-**Rapport complet publié** (généré avec Gemini, régénéré par `npm run snapshot`) : [`rapport/rapport_corroboration.xlsx`](rapport/rapport_corroboration.xlsx),
+**Résultats finaux publiés dans le dépôt** (générés avec Gemini, régénérés par `npm run snapshot`) : [`rapport/RESULTATS.md`](rapport/RESULTATS.md)
+(lisible sur GitHub), [`rapport/rapport_corroboration.xlsx`](rapport/rapport_corroboration.xlsx),
 [`rapport/rapport_corroboration.csv`](rapport/rapport_corroboration.csv) et [`rapport/anomalies.csv`](rapport/anomalies.csv).
 
 Les fichiers sources ne sont jamais modifiés. Leur sha256 est vérifié contre `manifest.json` à chaque exécution.
