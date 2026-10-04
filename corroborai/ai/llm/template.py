@@ -29,6 +29,9 @@ class TemplateProvider(Provider):
                           "Appliquer la règle de l'unité administrative : ignorer les changements de détail sans changement d'unité."),
         "libelle_autre_site": ("Libellé d'emplacement incohérent avec le code site",
                                "Resynchroniser siteName à partir de siteCode dans le Système B."),
+        "identifiant_different_matricule": ("Courriel construit avec un identifiant autre que le matricule",
+                                            "Préfixe d'environnement accepté ; confirmer s'il s'agit d'une erreur de construction du courriel "
+                                            "ou d'un artefact de l'anonymisation (correction expert possible pour tout le motif)."),
         "override_non_transmis": ("Heures de l'employé non transmises (heures du poste conservées)",
                                   "Valider avec l'équipe fonctionnelle si l'override des heures doit être alimenté ; corriger le flux si oui."),
     }

@@ -52,56 +52,55 @@ def prepare(pairs) -> dict:
 
 
 # ------------------------------------------------------------------ détecteurs
-_EMAIL_RE = re.compile(r"^(?:(?P<env>.+)_)?(?P<local>[^@_]+)(?P<domain>@.+)$")
+def assess_email(ctx: R.Ctx, exp: str, g: dict) -> Proposal:
+    """Diagnostic d'un courriel non conforme à la règle R-EMAIL (préfixe optionnel déjà retiré).
 
-
-def analyze_email(ctx: R.Ctx, exp: str, tgt: str | None, g: dict) -> Proposal:
+    Règle clarifiée par Loto-Québec : « code » = matricule. Un identifiant différent du matricule est donc une
+    anomalie. Si la structure de l'adresse est par ailleurs respectée (initiale, nom, identifiant + ses 3 derniers
+    chiffres, domaine, adresse unique), il peut s'agir d'un artefact d'anonymisation : anomalie « à valider »,
+    confiance modérée, faible priorité ; un expert peut trancher tous les cas du motif d'un coup.
+    """
     mat = N.code(ctx.src.get("Matricule"))
+    prefix, tgt = N.split_env_prefix(ctx.dst.get("contactEmail"))
     if not tgt:
         return Proposal(ANOMALIE, 0.95, ["courriel absent dans la cible"], "Le courriel est vide dans le Système B.", "email:absent")
-    m = _EMAIL_RE.match(tgt)
-    exp_local, exp_domain = exp.split("@")[0], "@" + exp.split("@")[1]
+    m = re.fullmatch(r"(?P<local>[^@]+)(?P<domain>@.+)", tgt)
     if not m:
-        return Proposal(ANOMALIE, 0.9, ["format de courriel invalide"], f"« {tgt} » n'est pas une adresse valide.", "email:invalide")
-    env, local, domain = m["env"], m["local"], m["domain"]
-    sig, ok = [], True
-    if env:
-        sig.append(f"préfixe d'environnement « {env}_ » (environnement de test)")
+        return Proposal(ANOMALIE, 0.95, ["format de courriel invalide"], f"« {tgt} » n'est pas une adresse valide.", "email:invalide")
+    exp_local, exp_domain = exp.split("@")[0], "@" + exp.split("@")[1]
+    local, domain = m["local"], m["domain"]
+    sig = [f"préfixe d'environnement optionnel « {prefix} » accepté (précision de Loto-Québec)"] if prefix else []
+    ok = True
     if domain != exp_domain:
         ok = False
         sig.append(f"domaine {domain} ≠ {exp_domain}")
-    if local == exp_local:
-        sig.append("partie locale identique à la règle")
-        return Proposal(JUSTIFIE, 0.95, sig, "Seul un préfixe d'environnement technique est ajouté ; l'adresse respecte la règle.", "email:prefixe_env")
     if local[:1] != exp_local[:1]:
         ok = False
         sig.append(f"initiale « {local[:1]} » ≠ initiale du prénom « {exp_local[:1]} »")
     mm = re.fullmatch(r"([a-z]+?)(\d+)", local[1:])
-    struct = False
-    if mm:
-        digits = mm[2]
-        struct = len(digits) > 3 and digits[-3:] == digits[:-3][-3:]
-        if struct:
-            sig.append(f"structure « initiale + nom + identifiant ({digits[:-3]}) + 3 derniers chiffres ({digits[-3:]}) » respectée")
-            if digits[:-3] != mat:
-                sig.append(f"identifiant {digits[:-3]} ≠ matricule {mat} : pseudonymisation de l'identifiant")
-    if not struct:
+    ident = None
+    if mm and len(mm[2]) > 3 and mm[2][-3:] == mm[2][:-3][-3:]:
+        ident = mm[2][:-3]
+        sig.append(f"structure « initiale + nom + identifiant ({ident}) + 3 derniers chiffres ({mm[2][-3:]}) » respectée")
+    else:
         ok = False
         sig.append("structure initiale + nom + 3 derniers chiffres non reconnue")
     shared = g["persons_by_email"].get(tgt, set()) - {mat}
-    multi = g["emails_by_person"].get(mat, set()) - {tgt}
     if shared:
         ok = False
         sig.append(f"adresse partagée avec d'autres matricules : {sorted(shared)}")
-    if multi:
+    if g["emails_by_person"].get(mat, set()) - {tgt}:
         ok = False
-        sig.append(f"plusieurs adresses pour le même matricule : {sorted(multi)}")
-    if ok:
-        return Proposal(JUSTIFIE, 0.8, sig,
-                        "L'adresse suit la structure de la règle (initiale + nom + identifiant + 3 derniers chiffres, bon domaine), "
-                        "est unique et stable par employé ; l'écart provient de l'anonymisation de l'identifiant et du préfixe d'environnement.",
-                        "email:structure_conforme_anonymisee")
-    return Proposal(ANOMALIE, 0.8, sig, "L'adresse ne respecte pas la structure attendue par la règle de construction du courriel.", "email:structure_non_conforme")
+        sig.append("plusieurs adresses différentes pour le même matricule")
+    if ok and ident and ident != mat:
+        sig.append(f"identifiant {ident} ≠ matricule {mat} (le code doit être le matricule, précision de Loto-Québec)")
+        return Proposal(ANOMALIE, 0.6, sig,
+                        f"L'adresse respecte la structure de la règle (initiale, nom, identifiant + 3 derniers chiffres, domaine, "
+                        f"adresse unique) mais l'identifiant utilisé ({ident}) n'est pas le matricule {mat}. Erreur de construction "
+                        f"du courriel ou artefact de l'anonymisation des données : à confirmer par un expert.",
+                        "email:identifiant_different_matricule", a_valider=True)
+    return Proposal(ANOMALIE, 0.95, sig, "L'adresse ne respecte pas la structure attendue par la règle de construction du courriel.",
+                    "email:structure_non_conforme")
 
 
 def analyze_position_name(ctx: R.Ctx, exp: str, tgt: str | None, g: dict) -> Proposal:
@@ -164,7 +163,7 @@ def analyze_generic(spec, exp, tgt) -> Proposal:
 
 def analyze(spec, ctx: R.Ctx, exp, tgt, g: dict) -> Proposal:
     if spec.champ_b == "contactEmail":
-        return analyze_email(ctx, exp, tgt, g)
+        return assess_email(ctx, exp, g)
     if spec.champ_b == "positionName":
         return analyze_position_name(ctx, exp, tgt, g)
     if spec.champ_b in ("weeklyHoursOverride", "dailyHoursOverride"):

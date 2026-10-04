@@ -78,7 +78,7 @@ def test_repli_final_gabarit_sans_aucun_llm(tmp_path):
 def test_llm_confirme_et_trace(tmp_path):
     echo = EchoProvider()
     res = Engine(router=make_router(echo), feedback=FeedbackStore(tmp_path / "f.json")).run()
-    f = next(f for f in res.findings if f.champ_b == "contactEmail")
+    f = next(f for f in res.findings if f.champ_b == "positionName")
     assert "LLM (simule/echo)" in f.decide_par and f.ia["llm"]["verdict"] == JUSTIFIE
     assert echo.calls >= 4  # appels groupés par champ (pas un appel par ligne)
 

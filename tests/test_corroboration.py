@@ -68,8 +68,28 @@ def test_heures_override_signalees_a_valider(result):
 def test_aucune_anomalie_inattendue(result):
     allowed = EXPECTED_ANOMALIES | {(m, c, "P") for m in ("2911996", "4402456", "7683990")
                                     for c in ("weeklyHoursOverride", "dailyHoursOverride")}
-    found = {(f.matricule, f.champ_b, f.type_affectation) for f in result.findings if f.verdict == ANOMALIE}
+    found = {(f.matricule, f.champ_b, f.type_affectation) for f in result.findings
+             if f.verdict == ANOMALIE and f.champ_b != "contactEmail"}
     assert found == allowed
+
+
+# ----------------------------------------------------------------- courriel (précision de Loto-Québec)
+def test_courriel_prefixe_optionnel_accepte():
+    assert N.split_env_prefix("dev-08-v2_PNom1545850850@loto-quebec.com") == ("dev-08-v2_", "pnom1545850850@loto-quebec.com")
+    assert N.email("dev-08-v2_PNom1545850850@loto-quebec.com") == N.email("PNom1545850850@loto-quebec.com")
+    assert N.split_env_prefix("pnom1545850850@loto-quebec.com") == (None, "pnom1545850850@loto-quebec.com")
+
+
+def test_courriel_identifiant_different_du_matricule_a_valider(result):
+    emails = [f for f in result.findings if f.champ_b == "contactEmail"]
+    assert len(emails) == 22
+    for f in emails:
+        assert f.verdict == ANOMALIE and f.a_valider and f.niveau.startswith("2")
+        assert f.signature == "email:identifiant_different_matricule"
+        assert any("préfixe" in s for s in f.ia["signaux"])
+    # faible priorité : ne masque pas les autres anomalies
+    autres = [f.priorite for f in result.findings if f.verdict == ANOMALIE and f.champ_b != "contactEmail"]
+    assert max(f.priorite for f in emails) < min(autres)
 
 
 def test_diagnostic_date_dernier_detail(result):
@@ -89,8 +109,8 @@ def test_mojibake_justifie(result):
     assert f.verdict == JUSTIFIE and f.regle_id == "R-NORMALISATION"
 
 
-def test_anonymisation_courriel_et_libelle(result):
-    assert all(f.verdict == JUSTIFIE for f in result.findings if f.champ_b in ("contactEmail", "positionName"))
+def test_anonymisation_libelle(result):
+    assert all(f.verdict == JUSTIFIE for f in result.findings if f.champ_b == "positionName")
 
 
 def test_heures_par_defaut_du_poste(result):

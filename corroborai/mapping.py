@@ -29,7 +29,8 @@ FIELD_SPECS: list[FieldSpec] = [
     FieldSpec("personId", "Matricule", "code", R.direct("Matricule", "code"), "R-DIRECT", "personId", criticite=1.0),
     FieldSpec("givenName", "PrénomUsuel", "text", R.direct("PrénomUsuel", "text"), "R-DIRECT", "givenName", True, 0.4),
     FieldSpec("surname", "NomFamille", "text", R.direct("NomFamille", "text"), "R-DIRECT", "surname", True, 0.4),
-    FieldSpec("contactEmail", "PrénomUsuel + NomFamille + Matricule", "email", R.rule_email, "R-EMAIL", "contactEmail", True, 0.45),
+    # Règle clarifiée par Loto-Québec (code = matricule, préfixe optionnel) : décision déterministe, pas d'arbitrage LLM.
+    FieldSpec("contactEmail", "PrénomUsuel + NomFamille + Matricule", "email", R.rule_email, "R-EMAIL", "contactEmail", False, 0.35),
     FieldSpec("onboardDate", "DateEmbaucheRécente", "date", R.direct("DateEmbaucheRécente", "date"), "R-DIRECT", "onboardDate", criticite=0.8),
     FieldSpec("siteName", "LibelléSite", "text", R.direct("LibelléSite", "text"), "R-DIRECT", "siteName", criticite=0.6),
     FieldSpec("siteCode", "CodeSite", "code", R.direct("CodeSite", "code"), "R-DIRECT", "siteCode", criticite=0.75),

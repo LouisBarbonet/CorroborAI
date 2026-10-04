@@ -162,6 +162,11 @@ class Engine:
             f.justification = (f"Non-respect de la règle {spec.regle_id} : valeur attendue « {N.fmt(exp.expected)} », "
                                f"reçue « {N.fmt(tgt)} ». {exp.explanation}")
             f.diagnostic, f.signature = diag, sig
+            if spec.champ_b == "contactEmail":  # diagnostic de structure : confiance, « à valider », signaux
+                prop = P.assess_email(ctx, exp.expected, g)
+                f.confiance, f.a_valider, f.signature, f.diagnostic = prop.confiance, prop.a_valider, prop.signature, prop.justification
+                f.ia = {"signaux": prop.signaux}
+                f.decide_par = "Règle métier (préfixe optionnel accepté)"
             return f, None
 
         prop = P.analyze(spec, ctx, exp.expected, tgt, g)
@@ -290,9 +295,10 @@ class Engine:
                 1 for f in res.findings if f.champ_b == "(affectation)"),
             "anomalies": len(anomalies), "justifies": sum(f.verdict == JUSTIFIE for f in res.findings),
             "conformes": sum(f.verdict == CONFORME for f in res.findings),
-            "groupes": sorted([{"champ": k[0], "diagnostic_type": k[1] or "écart", "nombre": len(v),
-                                "matricules": sorted({f.matricule for f in v}), "exemple": v[0].diagnostic or v[0].justification}
-                               for k, v in groups.items()], key=lambda x: -x["nombre"]),
+            # ordre d'importance : priorité maximale du groupe (et non le nombre de cas)
+            "groupes": [{"champ": k[0], "diagnostic_type": k[1] or "écart", "nombre": len(v),
+                         "matricules": sorted({f.matricule for f in v}), "exemple": v[0].diagnostic or v[0].justification}
+                        for k, v in sorted(groups.items(), key=lambda kv: (-max(f.priorite for f in kv[1]), -len(kv[1])))],
         }
         if self.use_llm:
             out, provider = self.router.summarize(stats)

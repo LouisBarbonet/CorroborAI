@@ -2,7 +2,7 @@
   "Quelles sont les vraies anomalies à investiguer en priorité ?",
   "Pourquoi le contractTypeCode de 2762457 est-il une anomalie ?",
   "Quelle affectation manque dans le Système B ?",
-  "Pourquoi les courriels différents sont-ils des écarts justifiés ?",
+  "Pourquoi les courriels sont-ils des anomalies à valider ?",
   "Pourquoi statusReasonCode passe de 807 à 170 pour 7603160 ?",
   "Pourquoi les heures de 2911996 sont-elles à valider ?",
   "Pourquoi assignmentStartDate utilise la date la plus récente ?",

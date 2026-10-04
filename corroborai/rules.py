@@ -104,8 +104,12 @@ def rule_email(ctx: Ctx) -> Expectation:
     mat = N.code(ctx.src.get("Matricule")) or ""
     nom_clean = re.sub(r"[^A-Za-z0-9]", "", nom)
     expected = f"{pre[:1]}{nom_clean}{mat[-3:]}{EMAIL_DOMAIN}".lower()
-    return Expectation(expected, "Première lettre du prénom + nom + 3 derniers chiffres du code + « @loto-quebec.com », accents retirés.",
-                       _ev(("prenom", pre), ("nom", nom), ("matricule", mat)), transformed=True)
+    prefix, _ = N.split_env_prefix(ctx.dst.get("contactEmail")) if ctx.dst else (None, None)
+    expl = ("Première lettre du prénom + nom + 3 derniers chiffres du code de l'employé (matricule) + « @loto-quebec.com », "
+            "accents retirés. Préfixe d'environnement optionnel accepté côté destination (précision de Loto-Québec)")
+    expl += f" : préfixe « {prefix} » retiré avant comparaison." if prefix else "."
+    return Expectation(expected, expl, _ev(("prenom", pre), ("nom", nom), ("matricule", mat), ("prefixe_destination", prefix)),
+                       transformed=True)
 
 
 def rule_division_name(ctx: Ctx) -> Expectation:

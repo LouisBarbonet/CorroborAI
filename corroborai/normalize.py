@@ -141,9 +141,23 @@ def fmt(v: Any) -> str | None:
     return str(v)
 
 
-def email(v: Any) -> str | None:
+ENV_PREFIX_RE = re.compile(r"^(?P<prefix>[a-z0-9-]+_)(?P<rest>[^_@\s]+@.+)$")
+
+
+def split_env_prefix(v: Any) -> tuple[str | None, str | None]:
+    """Sépare le préfixe d'environnement optionnel (ex. « dev-08-v2_ ») d'une adresse de destination.
+    Précision de Loto-Québec : ce préfixe peut être ajouté uniquement côté destination et doit être accepté."""
     t = text(v)
-    return t.lower() if t else None
+    if not t:
+        return None, None
+    t = t.lower()
+    m = ENV_PREFIX_RE.match(t)
+    return (m["prefix"], m["rest"]) if m else (None, t)
+
+
+def email(v: Any) -> str | None:
+    """Courriel normalisé : minuscules, préfixe d'environnement optionnel retiré."""
+    return split_env_prefix(v)[1]
 
 
 NORMALIZERS = {"text": text, "date": to_date, "bool": to_bool, "num": to_num, "code": code, "email": email}

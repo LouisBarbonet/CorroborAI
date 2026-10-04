@@ -38,7 +38,7 @@ def build_context(res: Result) -> str:
         "patterns, scikit-learn LogisticRegression + IsolationForest pour la priorité, LLM Gemini avec repli automatique) ; "
         "enfin un expert peut corriger un verdict (cas ou motif) et la correction devient une règle apprise.",
         "Rôle de l'IA : les niveaux 1 et 2 sont 100 % déterministes (aucune IA). L'IA intervient (a) au niveau 3 pour "
-        "arbitrer les écarts qu'aucune règle ne tranche (courriels et libellés pseudonymisés, heures), (b) pour diagnostiquer "
+        "arbitrer les écarts qu'aucune règle ne tranche (libellés d'emploi pseudonymisés, heures), (b) pour diagnostiquer "
         "la cause probable des anomalies, (c) pour prioriser (scikit-learn), (d) pour rédiger la synthèse par cause racine "
         "(Gemini), (e) pour calibrer une règle ambiguë contre les données, et (f) pour apprendre des corrections des experts. "
         "Si le LLM contredit l'analyse locale, le cas est marqué « à valider ». Sans LLM, un gabarit local prend le relais.",
@@ -46,6 +46,10 @@ def build_context(res: Result) -> str:
         "du modèle ML + 0,10 × atypicité IsolationForest + 0,05 × concentration d'anomalies chez le même employé).",
         "« À valider » : verdict IA de confiance modérée, ou désaccord entre l'analyse locale et le LLM, ou règle non applicable "
         "au cas ; un expert fonctionnel doit confirmer. La correction expert peut viser un cas ou tous les cas du même motif.",
+        "Courriel [R-EMAIL] : précision de Loto-Québec, le « code » de la règle est le matricule (personId) et le préfixe "
+        "d'environnement (ex. « dev-08-v2_ ») peut être ajouté côté destination : il est accepté. Les 22 adresses de "
+        "destination respectent la structure de la règle mais utilisent un identifiant différent du matricule : anomalies "
+        "« à valider » de faible priorité (erreur de construction ou artefact de l'anonymisation, à confirmer).",
         "Les fichiers sources sont en lecture seule (contrôle sha256). Le LLM ne reçoit que des valeurs anonymisées minimales.",
         "",
         "## Résultats sur les extractions fournies",
@@ -60,11 +64,20 @@ def build_context(res: Result) -> str:
         lines.append(f"Synthèse : {_short(synth['resume'], 700)}")
 
     lines += ["", "## Anomalies (par priorité)"]
-    for f in [f for f in res.findings if f.verdict == ANOMALIE]:
+    anomalies = [f for f in res.findings if f.verdict == ANOMALIE]
+    grouped = [f for f in anomalies if f.signature == "email:identifiant_different_matricule"]
+    for f in anomalies:
+        if f in grouped:
+            continue
         flag = " — à valider par un expert" if f.a_valider else ""
         lines.append(f"- {ref(f)} {f.employe}, affectation {f.type_affectation}, poste {f.code_poste} ; règle [{f.regle_id}] ; "
                      f"attendu « {f.valeur_attendue} », reçu « {f.valeur_b} » ; priorité {f.priorite}{flag}. "
                      f"Cause : {_short(f.diagnostic or f.justification)}")
+    if grouped:
+        ex = grouped[0]
+        lines.append(f"- Courriels ({len(grouped)} cas, règle [R-EMAIL], à valider par un expert, priorités "
+                     f"{min(g.priorite for g in grouped)}-{max(g.priorite for g in grouped)}) : {' '.join(ref(g) for g in grouped)}. "
+                     f"Exemple {ref(ex)} : attendu « {ex.valeur_attendue} », reçu « {ex.valeur_b} ». Cause : {_short(ex.diagnostic, 300)}")
 
     lines += ["", "## Écarts justifiés (regroupés)"]
     groups: dict[tuple, list] = defaultdict(list)

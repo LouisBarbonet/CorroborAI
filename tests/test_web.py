@@ -18,7 +18,7 @@ from tests.test_ai import EchoProvider, make_router
 def test_instantane_rejoue_sans_appel(tmp_path):
     rec = RecordingRouter(make_router(EchoProvider()))
     res1 = Engine(router=rec, feedback=FeedbackStore(tmp_path / "a.json")).run()
-    assert len(rec.recorded) == 5  # 4 champs ambigus (lots de 25) + synthèse
+    assert len(rec.recorded) == 4  # 3 champs ambigus (lots de 25) + synthèse
 
     calls = []
     relay = RelayRouter("https://relais.test", rec.recorded, post=lambda url, p: calls.append(url) or {})
@@ -26,7 +26,7 @@ def test_instantane_rejoue_sans_appel(tmp_path):
     assert calls == []
     assert res2.counts() == res1.counts()
     assert res2.meta["synthese"]["fournisseur"] == "simule/echo"
-    f = next(f for f in res2.findings if f.champ_b == "contactEmail")
+    f = next(f for f in res2.findings if f.champ_b == "positionName")
     assert "simule/echo" in f.decide_par
 
 
@@ -37,7 +37,7 @@ def test_relais_en_echec_repli_local(tmp_path):
     relay = RelayRouter("https://relais.test", {}, post=boom)
     res = Engine(router=relay, feedback=FeedbackStore(tmp_path / "f.json")).run()
     assert res.meta["llm"]["utilise"] == ["gabarit-local"]
-    assert res.counts()[ANOMALIE] == 16
+    assert res.counts()[ANOMALIE] == 38
     assert "quota" in relay.status()["fournisseurs"][0]["detail"]
 
 

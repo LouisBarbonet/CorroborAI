@@ -7,8 +7,8 @@
 Les résultats de la corroboration des extractions fournies par Loto-Québec s'affichent immédiatement (instantané
 calculé par le moteur avec Google Gemini) :
 
-- **Indicateurs** : 16 anomalies réelles, 174 écarts justifiés automatiquement, 361 conformes, 6 cas à valider par un
-  expert, 551 constats. Cliquer un indicateur filtre le tableau.
+- **Indicateurs** : 38 anomalies, 152 écarts justifiés automatiquement, 361 conformes, 28 cas à valider par un
+  expert (dont 22 courriels de faible priorité), 551 constats. Cliquer un indicateur filtre le tableau.
 - **Synthèse IA** : résumé et causes racines rédigés par Gemini, avec une recommandation par cause.
 - **Comment le verdict est décidé** : les 3 niveaux (comparaison, règles métier, IA) et la *calibration* d'une règle
   ambiguë du mapping (0/22 contre 19/22).
@@ -27,7 +27,8 @@ Exemples conseillés (tapez le matricule dans la recherche) :
 |---|---|---|
 | Conforme | 8142123 · onboardDate | date sérielle Excel ≡ date ISO (niveau 1) |
 | Écart justifié (règle) | 7603160 · statusReasonCode | jointure Motif 807 → code Remphor 170 (niveau 2) |
-| Écart justifié (IA) | 1545850 · contactEmail | préfixe d'environnement + identifiant pseudonymisé (niveau 3, avis Gemini) |
+| Écart justifié (IA) | 1545850 · positionName | libellé pseudonymisé de façon cohérente (niveau 3, avis Gemini) |
+| Anomalie à valider (courriel) | 1545850 · contactEmail | préfixe `dev-08-v2_` accepté, mais identifiant ≠ matricule (faible priorité) |
 | Vraie anomalie | 2762457 · contractTypeCode | JWN attendu, WHX reçu ; cause : code « Occasionnel » |
 | Anomalie avec historique | 9989151 · assignmentStartDate | la cible reprend la date du dernier détail du poste |
 | À valider | 2911996 · weeklyHoursOverride | 35 h dans RH, 40 h du poste dans Temps |
@@ -36,7 +37,8 @@ Exemples conseillés (tapez le matricule dans la recherche) :
 
 Dans le panneau, section « Corriger le verdict » : choisir le verdict, la portée (**ce cas** ou **tous les cas du même
 motif**), un commentaire, puis « Enregistrer ». Exemple : heures de 2911996 → « Écart justifié », portée *motif* :
-les 6 cas d'heures basculent en « Expert — règle apprise » et les anomalies passent de 16 à 10.
+les 6 cas d'heures basculent en « Expert — règle apprise » et les anomalies passent de 38 à 32. Même principe pour
+les 22 courriels (motif « identifiant différent du matricule »).
 
 > Version en ligne : la première correction démarre le **moteur Python dans votre navigateur** (Pyodide) : environ
 > 30 à 90 secondes la première fois selon la connexion (téléchargement de pandas et scikit-learn), quelques secondes ensuite. Vos

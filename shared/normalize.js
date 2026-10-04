@@ -13,7 +13,7 @@ export function normalizeQuestion(s) {
 // Repères citables dans les réponses : [R-XXX] ou [matricule/champ]
 export const CITATION_RE = /\[([^\[\]\n]{1,80})\]/g;
 
+// Tout texte entre crochets est affiché comme un repère cliquable : il doit donc correspondre à un repère réel.
 export function extractCitations(text) {
-  return [...String(text ?? "").matchAll(CITATION_RE)].map((m) => `[${m[1]}]`)
-    .filter((c) => /^\[(R-[A-Z-]+|\d{5,8}\/[A-Za-z()]+)\]$/.test(c) || c.includes("/") || c.startsWith("[R-"));
+  return [...String(text ?? "").matchAll(CITATION_RE)].map((m) => `[${m[1]}]`);
 }
