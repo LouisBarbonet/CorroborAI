@@ -78,9 +78,9 @@ def test_repli_final_gabarit_sans_aucun_llm(tmp_path):
 def test_llm_confirme_et_trace(tmp_path):
     echo = EchoProvider()
     res = Engine(router=make_router(echo), feedback=FeedbackStore(tmp_path / "f.json")).run()
-    f = next(f for f in res.findings if f.champ_b == "positionName")
-    assert "LLM (simule/echo)" in f.decide_par and f.ia["llm"]["verdict"] == JUSTIFIE
-    assert echo.calls >= 4  # appels groupés par champ (pas un appel par ligne)
+    f = next(f for f in res.findings if f.champ_b == "weeklyHoursOverride" and f.niveau.startswith("3"))
+    assert "LLM (simule/echo)" in f.decide_par and f.ia["llm"]["verdict"] == f.ia["analyse_locale"]["verdict"]
+    assert echo.calls >= 3  # appels groupés par champ (pas un appel par ligne) + synthèse
 
 
 def test_desaccord_llm_signale_a_valider(tmp_path):
@@ -93,7 +93,7 @@ def test_desaccord_llm_signale_a_valider(tmp_path):
             return out
 
     res = Engine(router=make_router(Contrarian()), feedback=FeedbackStore(tmp_path / "f.json")).run()
-    f = next(f for f in res.findings if f.champ_b == "positionName")
+    f = next(f for f in res.findings if f.matricule == "3712987" and f.champ_b == "weeklyHoursOverride")
     assert f.verdict == JUSTIFIE and f.a_valider and f.ia.get("desaccord")
 
 

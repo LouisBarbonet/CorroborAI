@@ -162,11 +162,16 @@ class Engine:
             f.justification = (f"Non-respect de la règle {spec.regle_id} : valeur attendue « {N.fmt(exp.expected)} », "
                                f"reçue « {N.fmt(tgt)} ». {exp.explanation}")
             f.diagnostic, f.signature = diag, sig
-            if spec.champ_b == "contactEmail":  # diagnostic de structure : confiance, « à valider », signaux
-                prop = P.assess_email(ctx, exp.expected, g)
+            # Diagnostic de structure (détecteurs de patterns) pour les règles précisées par Loto-Québec :
+            # confiance, signaux et cause probable, sans arbitrage LLM du verdict.
+            refine = {"contactEmail": (lambda: P.assess_email(ctx, exp.expected, g), "Règle métier (préfixe optionnel accepté)"),
+                      "positionName": (lambda: P.analyze_position_name(ctx, exp.expected, tgt, g), "Règle métier + diagnostic IA")}
+            if spec.champ_b in refine:
+                make, par = refine[spec.champ_b]
+                prop = make()
                 f.confiance, f.a_valider, f.signature, f.diagnostic = prop.confiance, prop.a_valider, prop.signature, prop.justification
-                f.ia = {"signaux": prop.signaux}
-                f.decide_par = "Règle métier (préfixe optionnel accepté)"
+                f.ia = {"signaux": prop.signaux, **prop.details}
+                f.decide_par = par
             return f, None
 
         prop = P.analyze(spec, ctx, exp.expected, tgt, g)
@@ -274,14 +279,19 @@ class Engine:
             n += 1
             hits["min"] += ev.get("valeur_regle_litterale_min", ev["DateEntréePoste"]) == tgt
             hits["max"] += ev.get("valeur_interpretation_max", ev["DateEntréePoste"]) == tgt
+            hits["detail"] += ev.get("valeur_regle_transformee", ev["DateEntréePoste"]) == tgt
+        best = max(("detail", "max", "min"), key=lambda k: hits[k])
+        labels = {"min": "littérale (plus ancienne, unité adm.)", "max": "plus récente (unité adm.)",
+                  "detail": "règle transformée (plus récente, détail de poste courant)"}
         return [{
             "regle": "R-ASSIGN-START", "texte_mapping": "« Date la plus ancienne entre la date calculée du changement d'unité "
                                                        "administrative et la date d'effet poste »",
-            "interpretations": {"littérale (plus ancienne)": f"{hits['min']}/{n}", "plus récente": f"{hits['max']}/{n}"},
+            "interpretations": {labels[k]: f"{hits[k]}/{n}" for k in ("min", "max", "detail")},
             "retenue": ref.assign_start_mode,
-            "conclusion": ("Les données du Système B suivent massivement l'interprétation « plus récente » : elle est retenue "
-                           "(paramètre ASSIGN_START_MODE). À confirmer avec l'équipe fonctionnelle.") if hits["max"] > hits["min"]
-            else "L'interprétation littérale est la plus cohérente avec les données.",
+            "conclusion": (f"Interprétation retenue : {labels[ref.assign_start_mode]} ({hits[ref.assign_start_mode]}/{n}). "
+                           "Loto-Québec a confirmé que la source ne porte que la date d'effet du poste et que la destination "
+                           "applique la règle transformée (paramètre ASSIGN_START_MODE).")
+            + ("" if best == ref.assign_start_mode else f" Attention : l'interprétation « {labels[best]} » concorde mieux."),
         }]
 
     def _summary(self, res: Result) -> dict:

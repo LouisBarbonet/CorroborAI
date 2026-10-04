@@ -119,12 +119,17 @@ def analyze_position_name(ctx: R.Ctx, exp: str, tgt: str | None, g: dict) -> Pro
     sig.append(f"emploi {code} ↦ {sorted(labels)} ; libellé ↦ emplois {sorted(codes)}")
     details = {"libelles_pour_ce_code": sorted(labels), "codes_pour_ce_libelle": sorted(codes)}
     if fmt_ok and bij:
-        return Proposal(JUSTIFIE, 0.8, sig + ["correspondance bijective et stable sur tout le jeu de données"],
-                        f"Le libellé « {tgt} » est la transcription pseudonymisée de « {exp} » : la correspondance code d'emploi ↔ libellé "
-                        "est biunivoque sur l'ensemble des employés (anonymisation cohérente), la règle de concaténation est respectée.",
-                        "posname:pseudonymisation_coherente", details=details)
+        # Loto-Québec : le libellé dont le préfixe ne correspond pas au code emploi est une erreur, à traiter comme un écart.
+        sig += ["correspondance bijective et stable sur tout le jeu de données (substitution systématique)",
+                "erreur confirmée par Loto-Québec : à signaler comme écart"]
+        return Proposal(ANOMALIE, 0.9, sig,
+                        f"Le libellé reçu « {tgt} » ne correspond pas au code emploi {code} (attendu « {exp} ») : la règle R-POSNAME "
+                        f"n'est pas respectée. La substitution est systématique et cohérente sur tout le jeu (chaque code emploi "
+                        f"reçoit toujours le même autre libellé), ce qui indique une erreur de correspondance des libellés en amont ; "
+                        f"Loto-Québec confirme qu'il s'agit d'une erreur.",
+                        "posname:substitution_systematique", details=details)
     why = "plusieurs libellés pour un même emploi" if len(labels) > 1 else ("un libellé partagé par plusieurs emplois" if len(codes) > 1 else "format invalide")
-    return Proposal(ANOMALIE, 0.85, sig, f"Incohérence du libellé d'emploi : {why}.", "posname:incoherent", details=details)
+    return Proposal(ANOMALIE, 0.95, sig, f"Incohérence du libellé d'emploi : {why}.", "posname:incoherent", details=details)
 
 
 def analyze_hours(spec, ctx: R.Ctx, exp, tgt) -> Proposal:

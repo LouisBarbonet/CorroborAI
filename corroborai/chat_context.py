@@ -38,7 +38,7 @@ def build_context(res: Result) -> str:
         "patterns, scikit-learn LogisticRegression + IsolationForest pour la priorité, LLM Gemini avec repli automatique) ; "
         "enfin un expert peut corriger un verdict (cas ou motif) et la correction devient une règle apprise.",
         "Rôle de l'IA : les niveaux 1 et 2 sont 100 % déterministes (aucune IA). L'IA intervient (a) au niveau 3 pour "
-        "arbitrer les écarts qu'aucune règle ne tranche (libellés d'emploi pseudonymisés, heures), (b) pour diagnostiquer "
+        "arbitrer les écarts qu'aucune règle ne tranche (heures), (b) pour diagnostiquer "
         "la cause probable des anomalies, (c) pour prioriser (scikit-learn), (d) pour rédiger la synthèse par cause racine "
         "(Gemini), (e) pour calibrer une règle ambiguë contre les données, et (f) pour apprendre des corrections des experts. "
         "Si le LLM contredit l'analyse locale, le cas est marqué « à valider ». Sans LLM, un gabarit local prend le relais.",
@@ -51,6 +51,12 @@ def build_context(res: Result) -> str:
         "destination respectent la structure de la règle mais utilisent un identifiant différent du matricule : anomalies "
         "de faible priorité. Loto-Québec a confirmé qu'il s'agit d'une erreur d'anonymisation du jeu de test et a souhaité "
         "que ce cas soit inclus dans la détermination des anomalies (en production, ce serait une erreur de construction du courriel).",
+        "Libellé de rôle [R-POSNAME] : précision de Loto-Québec, un libellé dont le préfixe ne correspond pas au code emploi "
+        "(ex. code 6203 : « 4367-Empl4367 » au lieu de « 6203-Empl6203 ») est une erreur à signaler comme écart : anomalies de "
+        "faible priorité (substitution systématique détectée sur tout le jeu).",
+        "Date d'effet de l'affectation [R-ASSIGN-START] : précision de Loto-Québec, le champ source ne porte que la date d'effet "
+        "du poste, la destination applique la règle transformée (date la plus récente entre la date d'effet du poste et celle "
+        "du détail de poste courant) ; les écarts correspondants (ex. 9989151, 4402456, 3241002) sont donc justifiés.",
         "Les fichiers sources sont en lecture seule (contrôle sha256). Le LLM ne reçoit que des valeurs anonymisées minimales.",
         "",
         "## Résultats sur les extractions fournies",
@@ -66,17 +72,25 @@ def build_context(res: Result) -> str:
 
     lines += ["", "## Anomalies (par priorité)"]
     anomalies = [f for f in res.findings if f.verdict == ANOMALIE]
-    grouped = [f for f in anomalies if f.signature == "email:identifiant_different_matricule"]
+    groups_def = {"email:identifiant_different_matricule": ("Courriels", "R-EMAIL",
+                                                            "cause confirmée : erreur d'anonymisation du jeu de test"),
+                  "posname:substitution_systematique": ("Libellés de rôle (positionName)", "R-POSNAME",
+                                                        "erreur confirmée par Loto-Québec, substitution systématique")}
+    grouped_all = {sig: [f for f in anomalies if f.signature == sig] for sig in groups_def}
+    in_group = {f.id for items in grouped_all.values() for f in items}
     for f in anomalies:
-        if f in grouped:
+        if f.id in in_group:
             continue
         flag = " — à valider par un expert" if f.a_valider else ""
         lines.append(f"- {ref(f)} {f.employe}, affectation {f.type_affectation}, poste {f.code_poste} ; règle [{f.regle_id}] ; "
                      f"attendu « {f.valeur_attendue} », reçu « {f.valeur_b} » ; priorité {f.priorite}{flag}. "
                      f"Cause : {_short(f.diagnostic or f.justification)}")
-    if grouped:
+    for sig, (titre, regle, cause) in groups_def.items():
+        grouped = grouped_all[sig]
+        if not grouped:
+            continue
         ex = grouped[0]
-        lines.append(f"- Courriels ({len(grouped)} cas, règle [R-EMAIL], cause confirmée : erreur d'anonymisation du jeu de test, priorités "
+        lines.append(f"- {titre} ({len(grouped)} cas, règle [{regle}], {cause}, faible priorité "
                      f"{min(g.priorite for g in grouped)}-{max(g.priorite for g in grouped)}) : {' '.join(ref(g) for g in grouped)}. "
                      f"Exemple {ref(ex)} : attendu « {ex.valeur_attendue} », reçu « {ex.valeur_b} ». Cause : {_short(ex.diagnostic, 300)}")
 
@@ -91,7 +105,8 @@ def build_context(res: Result) -> str:
 
     notable = [f for f in res.findings if f.verdict == JUSTIFIE and (
         (f.regle_id.startswith("R-STATUS") and f.valeur_attendue not in (None, "")) or f.regle_id == "R-NORMALISATION"
-        or (f.champ_b in ("weeklyHoursOverride", "dailyHoursOverride")))]
+        or (f.champ_b in ("weeklyHoursOverride", "dailyHoursOverride"))
+        or (f.champ_b == "assignmentStartDate" and f.valeur_a != f.valeur_b))]
     if notable:
         lines += ["", "## Écarts justifiés notables (détail)"]
         for f in notable:

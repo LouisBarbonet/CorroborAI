@@ -18,7 +18,7 @@ from tests.test_ai import EchoProvider, make_router
 def test_instantane_rejoue_sans_appel(tmp_path):
     rec = RecordingRouter(make_router(EchoProvider()))
     res1 = Engine(router=rec, feedback=FeedbackStore(tmp_path / "a.json")).run()
-    assert len(rec.recorded) == 4  # 3 champs ambigus (lots de 25) + synthèse
+    assert len(rec.recorded) == 3  # 2 champs ambigus (heures, lots de 25) + synthèse
 
     calls = []
     relay = RelayRouter("https://relais.test", rec.recorded, post=lambda url, p: calls.append(url) or {})
@@ -26,7 +26,7 @@ def test_instantane_rejoue_sans_appel(tmp_path):
     assert calls == []
     assert res2.counts() == res1.counts()
     assert res2.meta["synthese"]["fournisseur"] == "simule/echo"
-    f = next(f for f in res2.findings if f.champ_b == "positionName")
+    f = next(f for f in res2.findings if f.champ_b == "weeklyHoursOverride" and f.niveau.startswith("3"))
     assert "simule/echo" in f.decide_par
 
 
@@ -37,7 +37,7 @@ def test_relais_en_echec_repli_local(tmp_path):
     relay = RelayRouter("https://relais.test", {}, post=boom)
     res = Engine(router=relay, feedback=FeedbackStore(tmp_path / "f.json")).run()
     assert res.meta["llm"]["utilise"] == ["gabarit-local"]
-    assert res.counts()[ANOMALIE] == 38
+    assert res.counts()[ANOMALIE] == 57
     assert "quota" in relay.status()["fournisseurs"][0]["detail"]
 
 
@@ -89,4 +89,5 @@ def test_api_health_et_chat(monkeypatch):
 def test_verdict_justifie_reste_justifie_via_relais(tmp_path):
     relay = RelayRouter("", {})  # aucun relais : gabarit
     res = Engine(router=relay, feedback=FeedbackStore(tmp_path / "f.json")).run()
-    assert all(f.verdict == JUSTIFIE for f in res.findings if f.champ_b == "positionName")
+    f = next(f for f in res.findings if f.matricule == "3712987" and f.champ_b == "weeklyHoursOverride")
+    assert f.verdict == JUSTIFIE  # heures par défaut du poste : justifié même sans LLM

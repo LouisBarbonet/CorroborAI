@@ -32,6 +32,9 @@ class TemplateProvider(Provider):
         "identifiant_different_matricule": ("Courriel construit avec un identifiant autre que le matricule",
                                             "Préfixe d'environnement accepté ; identifiant ≠ matricule. Cause confirmée par Loto-Québec : "
                                             "erreur d'anonymisation du jeu de test (en production : corriger la construction du courriel)."),
+        "substitution_systematique": ("Libellé de rôle ne correspondant pas au code emploi",
+                                      "Corriger la table de correspondance des libellés d'emploi (substitution systématique ; "
+                                      "erreur confirmée par Loto-Québec)."),
         "override_non_transmis": ("Heures de l'employé non transmises (heures du poste conservées)",
                                   "Valider avec l'équipe fonctionnelle si l'override des heures doit être alimenté ; corriger le flux si oui."),
     }

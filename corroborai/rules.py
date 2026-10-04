@@ -31,7 +31,7 @@ class RefData:
     contract_rules: list[dict]
     situation_rules: list[dict]
     mapping_by_b: dict[str, dict]
-    assign_start_mode: str = "max"
+    assign_start_mode: str = "detail"
     notes: list[str] = field(default_factory=list)
 
 
@@ -72,9 +72,9 @@ def build_refdata(ds: Datasets) -> RefData:
     motif = {N.code(r["CodeCatégorieStatut"]): r for r in ds.motif.to_dict("records")}
     mapping_by_b = {r["champ_b"]: r for r in ds.mapping.to_dict("records")}
     contract_txt = mapping_by_b.get("contractTypeCode", {}).get("regle", "")
-    mode = os.environ.get("ASSIGN_START_MODE", "max").lower()
+    mode = os.environ.get("ASSIGN_START_MODE", "detail").lower()
     return RefData(detail, motif, _parse_contract_rules(contract_txt), _parse_situation_rules(ds.situation_rules),
-                   mapping_by_b, assign_start_mode=mode if mode in ("max", "min") else "max")
+                   mapping_by_b, assign_start_mode=mode if mode in ("detail", "max", "min") else "detail")
 
 
 @dataclass
@@ -242,11 +242,22 @@ def rule_assignment_start(ctx: Ctx) -> Expectation:
           "mode": ctx.ref.assign_start_mode, "historique_poste": _hist_ev(tl)}
     if du is None:
         return Expectation(entree, "Aucun détail de poste : la date d'entrée au poste est retenue.", ev)
+    detail_courant = tl["historique"][-1]["DateEffet"]  # date d'effet du détail de poste courant
     cands = [d for d in (entree, du) if d]
-    exp = max(cands) if ctx.ref.assign_start_mode == "max" else min(cands)
+    ev["date_effet_detail_courant"] = N.fmt(detail_courant)
     ev["valeur_regle_litterale_min"] = N.fmt(min(cands))
     ev["valeur_interpretation_max"] = N.fmt(max(cands))
-    how = "la plus récente" if ctx.ref.assign_start_mode == "max" else "la plus ancienne"
+    ev["valeur_regle_transformee"] = N.fmt(max(d for d in (entree, detail_courant) if d))
+    mode = ctx.ref.assign_start_mode
+    if mode == "detail":
+        # Précision de Loto-Québec : la source ne porte que la date d'effet du poste ; la destination applique la règle
+        # transformée, qui retient le détail de poste le plus récent.
+        exp = max(d for d in (entree, detail_courant) if d)
+        return Expectation(exp, f"Règle transformée (précisée par Loto-Québec) : date la plus récente entre la date d'effet du "
+                                f"poste (DateEntréePoste {N.fmt(entree)}) et la date d'effet du détail de poste courant "
+                                f"({N.fmt(detail_courant)}).", ev, transformed=exp != entree)
+    exp = max(cands) if mode == "max" else min(cands)
+    how = "la plus récente" if mode == "max" else "la plus ancienne"
     origin = "changement d'unité" if tl["changement"] else "MIN EFFDT (aucun changement d'unité)"
     return Expectation(exp, f"Date {how} entre DateEntréePoste ({N.fmt(entree)}) et la date d'effet de l'unité adm. "
                             f"{tl['unite_courante']} ({N.fmt(du)}, {origin}).", ev, transformed=exp != entree)

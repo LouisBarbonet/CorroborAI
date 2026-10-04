@@ -13,9 +13,12 @@ accompagné de la règle appliquée, des preuves utilisées et d'une justificati
 
 | Verdict | Nombre | Exemples |
 |---|---|---|
-| **Anomalie** | **38** | 1 affectation temporaire absente de B (1545850). 4 `contractTypeCode` erronés (2762457, 4625374, 3712987, 7254364). 3 `assignmentStartDate` qui reprennent le dernier détail du poste (9989151, 4402456, 3241002). 2 `siteName` incohérents avec `siteCode` (6035643, 3241002). 6 heures non transmises, **à valider** (2911996, 4402456, 7683990). 22 courriels construits avec un identifiant autre que le matricule, faible priorité (préfixe d'environnement accepté ; cause confirmée par Loto-Québec : erreur d'anonymisation du jeu de test, cas conservé dans la détection à sa demande). |
-| **Écart justifié** | 152 | Jointure Motif (807 → code Remphor 170), concaténations `divisionName`, dérivation du type de contrat, P/A/S → booléens, libellés d'emploi pseudonymisés, encodage `Absence complÃ¨te`, heures par défaut du poste |
+| **Anomalie** | **57** | 1 affectation temporaire absente de B (1545850). 4 `contractTypeCode` erronés (2762457, 4625374, 3712987, 7254364). 2 `siteName` incohérents avec `siteCode` (6035643, 3241002). 6 heures non transmises, **à valider** (2911996, 4402456, 7683990). 22 courriels construits avec un identifiant autre que le matricule, faible priorité (préfixe d'environnement accepté ; cause confirmée par Loto-Québec : erreur d'anonymisation du jeu de test, cas conservé dans la détection à sa demande). 22 libellés de rôle (`positionName`) dont le préfixe ne correspond pas au code emploi, faible priorité (erreur confirmée par Loto-Québec, substitution systématique). |
+| **Écart justifié** | 133 | Jointure Motif (807 → code Remphor 170), concaténations `divisionName`, dérivation du type de contrat, P/A/S → booléens, dates d'affectation issues de la règle transformée (9989151, 4402456, 3241002), encodage `Absence complÃ¨te`, heures par défaut du poste |
 | **Conforme** | 361 | Dates sérielles Excel ≡ ISO, codes, libellés identiques |
+
+**Rapport complet publié** (généré avec Gemini, régénéré par `npm run snapshot`) : [`rapport/rapport_corroboration.xlsx`](rapport/rapport_corroboration.xlsx),
+[`rapport/rapport_corroboration.csv`](rapport/rapport_corroboration.csv) et [`rapport/anomalies.csv`](rapport/anomalies.csv).
 
 Les fichiers sources ne sont jamais modifiés. Leur sha256 est vérifié contre `manifest.json` à chaque exécution.
 
@@ -105,11 +108,11 @@ GitHub Pages (statique, dist/)                         Cloudflare Worker « corr
 | R-DIRECT | givenName, surname, onboardDate, personId, siteName, siteCode, divisionId, divisionCode, positionId, positionCode, payGradeId, weekly/dailyHoursOverride | Valeur identique après normalisation |
 | R-EMAIL | contactEmail | 1re lettre du prénom + nom + 3 derniers chiffres du **matricule** + `@loto-quebec.com`, sans accents. Préfixe d'environnement optionnel (ex. `dev-08-v2_`) accepté côté destination (précisions de Loto-Québec) |
 | R-DIVNAME | divisionName | `CodeDirection` sur 5 chiffres + `-` + libellé |
-| R-POSNAME | positionName | `CodeEmploi` + `-` + intitulé |
+| R-POSNAME | positionName | `CodeEmploi` + `-` + intitulé. Un préfixe différent du code emploi est une erreur à signaler (précision de Loto-Québec) |
 | R-STATUS / -CAD / -CADP | detailedStatus, statusReasonCode, expectedReturnDate | Code d'accès 00/01 → Actif, nulls. 02/03/06/07 → Absence complète, code Remphor obtenu par **jointure** `CodeRaisonStatut ⋈ Motif`, date de retour. |
 | R-CONTRACT | contractTypeCode | Table EMPTP_CD / PERM_IND / FT_IND → JWN, XFLR, KELH, WHX… (lue dans le mapping) |
 | R-AFFTYPE | isPrimaryAssignment, isTemporaryAssignment | P → (true, false), A → (false, true), S → (false, false) |
-| R-ASSIGN-START | assignmentStartDate | Combinaison de `DateEntréePoste` et de la date d'entrée en vigueur de l'unité adm. courante (détection des changements dans le détail du poste, sinon MIN EFFDT) |
+| R-ASSIGN-START | assignmentStartDate | Règle transformée appliquée par la destination (précisée par Loto-Québec) : date la plus récente entre la date d'effet du poste (`DateEntréePoste`) et celle du détail de poste courant. Les interprétations « unité administrative » restent disponibles (`ASSIGN_START_MODE=max|min`) |
 | R-ASSIGN-END | assignmentEndDate, termEndDate | Date la plus ancienne entre l'expiration du poste et la fin de l'unité adm. (effdt suivant − 1 jour si l'unité change) |
 | R-RECORD | (affectation) | Chaque affectation source doit exister dans B |
 | R-NORMALISATION | tout champ texte | Valeur identique après réparation de l'encodage → écart justifié, avec une recommandation de correction de l'export |
@@ -124,7 +127,7 @@ qui permet de toujours distinguer une décision par règle d'une décision par I
 
 1. **Détecteurs de patterns** (`ai/patterns.py`, raisonnement sur l'ensemble du jeu de données) :
    - **Courriel** (règle déterministe, précisée par Loto-Québec : code = matricule, préfixe optionnel accepté) : quand l'adresse diffère, le diagnostic vérifie la structure *initiale + nom + identifiant + 3 derniers chiffres*, le domaine et l'unicité. Les 22 adresses respectent la structure mais utilisent un identifiant autre que le matricule : anomalies de faible priorité (cause confirmée par Loto-Québec : erreur d'anonymisation du jeu de test ; Loto-Québec a souhaité que ce cas reste détecté, car en production ce serait une erreur de construction du courriel).
-   - **Libellé d'emploi** : vérifie que la correspondance code d'emploi ↔ libellé cible est **biunivoque** sur tous les employés. Si oui, il s'agit d'une pseudonymisation cohérente. Toute incohérence est signalée comme anomalie.
+   - **Libellé d'emploi** (diagnostic d'une anomalie de règle) : vérifie si la correspondance code d'emploi ↔ libellé cible est **biunivoque** sur tous les employés. C'est le cas : la substitution est systématique, ce qui pointe une erreur de table de correspondance en amont (erreur confirmée par Loto-Québec).
    - **Heures** : compare aux heures contractuelles du *détail du poste*. Une source vide correspond au défaut du poste (justifié). Une norme employé différente indique un override non transmis : anomalie **à valider**, avec une confiance de 0,6.
    - **Diagnostic des anomalies déterministes** : explique la cause probable. Exemples : « la cible reprend la date d'effet du DERNIER détail du poste (changement de gestionnaire, sans changement d'unité) » ; « WHX correspond à EMPTP_CD=O alors que la source indique V ».
 2. **Apprentissage automatique** (`ai/scorer.py`, scikit-learn) :
@@ -136,8 +139,8 @@ qui permet de toujours distinguer une décision par règle d'une décision par I
    - Le LLM rend un verdict, une confiance et une justification en français. Il rédige aussi la **synthèse exécutive par cause racine**.
    - Si le LLM confirme l'analyse locale, la confiance augmente. S'il la contredit, le cas est marqué **à valider** et les deux avis sont conservés dans le rapport.
 4. **Calibration de règle** :
-   - Le moteur confronte les interprétations possibles d'une règle ambiguë aux données. Pour `assignmentStartDate`, la lecture littérale « plus ancienne » concorde sur **0/22** lignes et « plus récente » sur **19/22**.
-   - L'interprétation retenue est donc « plus récente » (`ASSIGN_START_MODE=max`), documentée dans le rapport, à faire confirmer par l'équipe fonctionnelle.
+   - Le moteur confronte les interprétations possibles d'une règle ambiguë aux données. Pour `assignmentStartDate`, la lecture littérale « plus ancienne » concorde sur **0/22** lignes, « plus récente (unité adm.) » sur **19/22** et la **règle transformée** (détail de poste courant) sur **22/22**.
+   - La règle transformée est retenue (`ASSIGN_START_MODE=detail`) : Loto-Québec a confirmé que la source ne porte que la date d'effet du poste et que la destination applique la règle transformée.
 5. **Chat du jury** : un assistant répond aux questions sur les résultats, les règles et la méthode, uniquement à partir
    du contexte du projet, en citant ses sources (`[R-CONTRACT]`, `[2762457/contractTypeCode]`, cliquables dans l'interface).
 6. **Boucle expert** :
@@ -184,10 +187,10 @@ API : `POST /api/run`, `GET /api/summary`, `GET /api/findings`, `GET /api/findin
 
 ## Scénario de démonstration (environ 3 min)
 
-1. Ouvrir https://louisbarbonet.github.io/CorroborAI/ (ou l'interface locale) : 38 anomalies (dont 6 à valider), 152 écarts justifiés, 361 conformes, sources intactes.
+1. Ouvrir https://louisbarbonet.github.io/CorroborAI/ (ou l'interface locale) : 57 anomalies (dont 6 à valider), 133 écarts justifiés, 361 conformes, sources intactes.
 2. **Cas conforme** : filtre *Conforme*, champ `onboardDate` de 8142123. Le sériel Excel 31291 est égal à `1985-09-01T00:00:00.000Z` (niveau 1).
-3. **Écart justifié automatiquement** : 7603160, `statusReasonCode`. Source 807, cible 170 : jointure Motif 807 → Remphor 170 (niveau 2). Montrer aussi `positionName` (IA : libellé pseudonymisé de façon cohérente, avis Gemini).
-4. **Vraie anomalie** : 2762457, `contractTypeCode`. JWN attendu (V, permanent, temps plein), WHX reçu. Diagnostic : WHX correspond à « Occasionnel ». Montrer ensuite 9989151 `assignmentStartDate` avec l'historique du poste.
+3. **Écart justifié automatiquement** : 7603160, `statusReasonCode`. Source 807, cible 170 : jointure Motif 807 → Remphor 170 (niveau 2). Montrer aussi 9989151 `assignmentStartDate` (règle transformée, historique du poste) et 3712987 `weeklyHoursOverride` (IA : heures par défaut du poste, avis Gemini).
+4. **Vraie anomalie** : 2762457, `contractTypeCode`. JWN attendu (V, permanent, temps plein), WHX reçu. Diagnostic : WHX correspond à « Occasionnel ».
 5. **Cas à valider** : heures de 2911996 (35 h dans RH, 40 h du poste dans Temps).
    - Corriger en « Écart justifié », portée *motif*.
    - Les 6 cas similaires basculent en « Expert — règle apprise ».
@@ -206,7 +209,7 @@ API : `POST /api/run`, `GET /api/summary`, `GET /api/findings`, `GET /api/findin
 ## Limites
 
 - Le jeu de test est petit (23 affectations). Le modèle ML sert à la priorisation et à une seconde opinion, pas à décider seul.
-- Les détecteurs de pseudonymisation (libellés d'emploi) sont adaptés aux données anonymisées du défi. Les courriels suivent la règle stricte précisée par Loto-Québec ; les 22 écarts sont signalés en anomalie de faible priorité (cause confirmée par Loto-Québec : erreur d'anonymisation du jeu de test).
+- Les libellés de rôle et les courriels suivent les règles strictes précisées par Loto-Québec ; les courriels suivent la règle stricte précisée par Loto-Québec ; les 22 écarts sont signalés en anomalie de faible priorité (cause confirmée par Loto-Québec : erreur d'anonymisation du jeu de test).
 - La qualité des justifications LLM dépend du fournisseur. Les petits modèles locaux sont moins précis, d'où la fusion avec l'analyse locale et le marquage « à valider » en cas de désaccord.
 - Le stockage des corrections expert est un fichier JSON local (ou le navigateur en ligne), sans gestion multi-utilisateur.
 - Version en ligne : le premier recalcul télécharge Pyodide et ses bibliothèques (≈ 30 à 90 s selon la connexion, puis cache du navigateur) ;

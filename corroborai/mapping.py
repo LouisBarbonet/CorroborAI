@@ -38,7 +38,7 @@ FIELD_SPECS: list[FieldSpec] = [
     FieldSpec("divisionName", "CodeDirection + LibelléDirection", "text", R.rule_division_name, "R-DIVNAME", "divisionName", True, 0.5),
     FieldSpec("divisionCode", "CodeImputation", "code", R.direct("CodeImputation", "code"), "R-DIRECT", "divisionCode", criticite=0.75),
     FieldSpec("positionId", "CodeEmploi", "code", R.direct("CodeEmploi", "code"), "R-DIRECT", "positionId", criticite=0.8),
-    FieldSpec("positionName", "CodeEmploi + IntituléEmploi", "text", R.rule_position_name, "R-POSNAME", "positionName", True, 0.45),
+    FieldSpec("positionName", "CodeEmploi + IntituléEmploi", "text", R.rule_position_name, "R-POSNAME", "positionName", False, 0.35),
     FieldSpec("positionCode", "CodeEmploi", "code", R.direct("CodeEmploi", "code"), "R-DIRECT", "positionCode", criticite=0.8),
     FieldSpec("statusReasonCode", "CodeSuspensionAccès + CodeRaisonStatut (⋈ Motif)", "code", R.rule_status_reason, "R-STATUS-CAD", "statusReasonCode", criticite=0.95),
     FieldSpec("expectedReturnDate", "DateRetourAnticipée", "date", R.rule_expected_return, "R-STATUS-CADP", "expectedReturnDate", criticite=0.9),

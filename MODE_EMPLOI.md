@@ -7,11 +7,11 @@
 Les résultats de la corroboration des extractions fournies par Loto-Québec s'affichent immédiatement (instantané
 calculé par le moteur avec Google Gemini) :
 
-- **Indicateurs** : 38 anomalies (dont 22 courriels de faible priorité), 152 écarts justifiés automatiquement,
+- **Indicateurs** : 57 anomalies (dont 22 courriels et 22 libellés de rôle de faible priorité), 133 écarts justifiés automatiquement,
   361 conformes, 6 cas à valider par un expert, 551 constats. Cliquer un indicateur filtre le tableau.
 - **Synthèse IA** : résumé et causes racines rédigés par Gemini, avec une recommandation par cause.
 - **Comment le verdict est décidé** : les 3 niveaux (comparaison, règles métier, IA) et la *calibration* d'une règle
-  ambiguë du mapping (0/22 contre 19/22).
+  ambiguë du mapping (0/22, 19/22 et 22/22 pour la règle transformée retenue).
 - **Tableau** trié par priorité, filtrable par verdict, champ, niveau de décision, « à valider » et recherche libre.
 - En bas : couverture du mapping (chaque ligne de Mapping.xlsx), moteurs d'IA et contrôle d'intégrité des fichiers.
 
@@ -27,17 +27,18 @@ Exemples conseillés (tapez le matricule dans la recherche) :
 |---|---|---|
 | Conforme | 8142123 · onboardDate | date sérielle Excel ≡ date ISO (niveau 1) |
 | Écart justifié (règle) | 7603160 · statusReasonCode | jointure Motif 807 → code Remphor 170 (niveau 2) |
-| Écart justifié (IA) | 1545850 · positionName | libellé pseudonymisé de façon cohérente (niveau 3, avis Gemini) |
+| Écart justifié (règle transformée) | 9989151 · assignmentStartDate | date du détail de poste courant (historique du poste affiché) |
+| Écart justifié (IA) | 3712987 · weeklyHoursOverride | source vide → heures par défaut du poste (niveau 3, avis Gemini) |
+| Anomalie (libellé de rôle) | 2762457 · positionName | préfixe 4367 ≠ code emploi 6203 ; substitution systématique, erreur confirmée (faible priorité) |
 | Anomalie (courriel) | 1545850 · contactEmail | préfixe `dev-08-v2_` accepté, mais identifiant ≠ matricule ; cause confirmée par Loto-Québec : erreur d'anonymisation du jeu de test (faible priorité) |
 | Vraie anomalie | 2762457 · contractTypeCode | JWN attendu, WHX reçu ; cause : code « Occasionnel » |
-| Anomalie avec historique | 9989151 · assignmentStartDate | la cible reprend la date du dernier détail du poste |
 | À valider | 2911996 · weeklyHoursOverride | 35 h dans RH, 40 h du poste dans Temps |
 
 ## 3. Corriger un verdict (expert fonctionnel)
 
 Dans le panneau, section « Corriger le verdict » : choisir le verdict, la portée (**ce cas** ou **tous les cas du même
 motif**), un commentaire, puis « Enregistrer ». Exemple : heures de 2911996 → « Écart justifié », portée *motif* :
-les 6 cas d'heures basculent en « Expert — règle apprise » et les anomalies passent de 38 à 32. Même principe pour
+les 6 cas d'heures basculent en « Expert — règle apprise » et les anomalies passent de 57 à 51. Même principe pour
 tout autre motif.
 
 > Version en ligne : la première correction démarre le **moteur Python dans votre navigateur** (Pyodide) : environ

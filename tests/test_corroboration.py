@@ -46,9 +46,8 @@ EXPECTED_ANOMALIES = {
     ("2762457", "contractTypeCode", "P"), ("4625374", "contractTypeCode", "P"),
     ("3712987", "contractTypeCode", "P"), ("7254364", "contractTypeCode", "P"),
     ("6035643", "siteName", "P"), ("3241002", "siteName", "P"),
-    ("9989151", "assignmentStartDate", "P"), ("4402456", "assignmentStartDate", "P"),
-    ("3241002", "assignmentStartDate", "P"),
 }
+LOW_PRIORITY_FIELDS = ("contactEmail", "positionName")  # erreurs confirmées par Loto-Québec, signalées en faible priorité
 
 
 def test_anomalies_deterministes(result):
@@ -69,7 +68,7 @@ def test_aucune_anomalie_inattendue(result):
     allowed = EXPECTED_ANOMALIES | {(m, c, "P") for m in ("2911996", "4402456", "7683990")
                                     for c in ("weeklyHoursOverride", "dailyHoursOverride")}
     found = {(f.matricule, f.champ_b, f.type_affectation) for f in result.findings
-             if f.verdict == ANOMALIE and f.champ_b != "contactEmail"}
+             if f.verdict == ANOMALIE and f.champ_b not in LOW_PRIORITY_FIELDS}
     assert found == allowed
 
 
@@ -90,13 +89,34 @@ def test_courriel_identifiant_different_du_matricule_anomalie(result):
         assert f.signature == "email:identifiant_different_matricule"
         assert any("préfixe" in s for s in f.ia["signaux"])
     # faible priorité : ne masque pas les autres anomalies
-    autres = [f.priorite for f in result.findings if f.verdict == ANOMALIE and f.champ_b != "contactEmail"]
+    autres = [f.priorite for f in result.findings if f.verdict == ANOMALIE and f.champ_b not in LOW_PRIORITY_FIELDS]
     assert max(f.priorite for f in emails) < min(autres)
 
 
-def test_diagnostic_date_dernier_detail(result):
-    f = get(result, "9989151", "assignmentStartDate")
-    assert f.valeur_attendue == "2009-03-30" and f.signature.endswith("dernier_effdt")
+# ----------------------------------------------------------------- libellé de rôle (précision de Loto-Québec)
+def test_libelle_role_prefixe_incorrect_anomalie(result):
+    # Loto-Québec : préfixe ≠ code emploi = erreur, à considérer comme un écart à signaler
+    roles = [f for f in result.findings if f.champ_b == "positionName"]
+    assert len(roles) == 22
+    for f in roles:
+        assert f.verdict == ANOMALIE and f.niveau.startswith("2") and f.signature == "posname:substitution_systematique"
+        assert any("bijective" in s for s in f.ia["signaux"])
+    autres = [f.priorite for f in result.findings if f.verdict == ANOMALIE and f.champ_b not in LOW_PRIORITY_FIELDS]
+    assert max(f.priorite for f in roles) < min(autres)
+
+
+# ----------------------------------------------------------------- date d'effet (précision de Loto-Québec)
+def test_date_affectation_regle_transformee_justifiee(result):
+    # Loto-Québec : la destination applique la règle transformée → écarts voulus, donc justifiés
+    for mat, date in (("9989151", "2021-03-30"), ("4402456", "2013-10-20"), ("3241002", "2022-10-05")):
+        f = get(result, mat, "assignmentStartDate")
+        assert f.verdict == JUSTIFIE and f.valeur_attendue == date and f.niveau.startswith("2")
+    assert get(result, "2173396", "assignmentStartDate").verdict == CONFORME
+
+
+def test_calibration_regle_date(result):
+    cal = result.meta["calibration_regles"][0]
+    assert list(cal["interpretations"].values()) == ["0/22", "19/22", "22/22"] and cal["retenue"] == "detail"
 
 
 # ----------------------------------------------------------------- écarts justifiés
@@ -109,10 +129,6 @@ def test_statut_absence_jointure_motif(result):
 def test_mojibake_justifie(result):
     f = get(result, "7603160", "detailedStatus")
     assert f.verdict == JUSTIFIE and f.regle_id == "R-NORMALISATION"
-
-
-def test_anonymisation_libelle(result):
-    assert all(f.verdict == JUSTIFIE for f in result.findings if f.champ_b == "positionName")
 
 
 def test_heures_par_defaut_du_poste(result):

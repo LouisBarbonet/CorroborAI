@@ -5,6 +5,7 @@
 Produit :
 - web/src/generated/snapshot.json   : résultat complet (résumé + constats) + réponses LLM enregistrées, affiché
                                       instantanément par le site et rejoué par le moteur Pyodide sans appel ;
+- rapport/                           : rapport de corroboration (Excel + CSV) publié dans le dépôt ;
 - worker/src/data.generated.json    : consignes (prompts/prompts.json), contexte du chat, textes des règles par
                                       champ et repères citables — le relais construit lui-même ses consignes.
 Utilise le LLM configuré dans .env (Gemini) et le cache disque .cache/llm/ : relançable sans coût.
@@ -29,6 +30,7 @@ from corroborai.engine import Engine  # noqa: E402
 from corroborai.mapping import FIELD_SPECS, rule_text  # noqa: E402
 from corroborai.rules import build_refdata  # noqa: E402
 from corroborai.io_loader import load  # noqa: E402
+from corroborai.report import export  # noqa: E402
 
 
 def main() -> int:
@@ -60,8 +62,12 @@ def main() -> int:
     out_worker.parent.mkdir(parents=True, exist_ok=True)
     out_worker.write_text(json.dumps(worker_data, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    # Rapport de corroboration publié dans le dépôt (autorisé par Loto-Québec) : les juges n'ont rien à régénérer.
+    files = export(res, ROOT / "rapport")
+
     c = res.counts()
     print(f"Instantané : {c} — LLM : {used} — {len(router.recorded)} réponse(s) enregistrée(s)")
+    print(f"  rapport/ : {', '.join(p.name for p in files.values())}")
     print(f"  {out_web.relative_to(ROOT)} ({out_web.stat().st_size // 1024} Ko)")
     print(f"  {out_worker.relative_to(ROOT)} (contexte : {len(worker_data['context'])} caractères)")
     return 0
