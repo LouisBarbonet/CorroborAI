@@ -86,6 +86,7 @@ function renderSummary(s) {
   b.textContent = `IA : ${used || "—"}`;
   b.title = (llm.fournisseurs || []).map((p) => `${p.fournisseur}: ${p.disponible ? "✓" : "✗"} ${p.detail}`).join("\n");
   $("#modeBadge").textContent = backend.label;
+  $("#modeBadge").title = `Version du site : ${__APP_VERSION__}`;
 
   $("#coverage").innerHTML = `<table><thead><tr><th>Champ A</th><th>Champ B</th><th>Ligne</th><th>Statut</th></tr></thead><tbody>${
     s.couverture_mapping.map((r) => `<tr><td>${esc(r.champ_a)}</td><td>${esc(r.champ_b)}</td><td>${esc(r.ligne_excel)}</td><td>${esc(r.statut)}</td></tr>`).join("")}</tbody></table>`;
@@ -100,7 +101,7 @@ function renderSummary(s) {
   const verified = (s.integrite || []).filter((i) => i.statut !== "non embarqué");
   const intact = verified.every((i) => i.intact);
   $("#integrity").innerHTML = `<p><b>Intégrité des sources :</b> ${intact ? `✓ ${verified.length} fichier(s) vérifié(s), inchangés (sha256 conformes au manifest)` : "⚠ écart sha256 détecté"} ·
-    exécution du ${esc(s.date_execution)} (${esc(s.duree_s)} s)</p>`;
+    exécution du ${esc(s.date_execution)} (${esc(s.duree_s)} s) · version du site <code>${esc(__APP_VERSION__)}</code></p>`;
 }
 
 // ------------------------------------------------------------------ tableau

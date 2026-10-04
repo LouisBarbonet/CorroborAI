@@ -79,7 +79,7 @@ class EngineClient {
         this.pending.delete(m.id);
         m.ok ? p.resolve(m.result) : p.reject(new Error(m.error));
       };
-      this.ready = this.call("init", { base }).catch((err) => {
+      this.ready = this.call("init", { base, version: __APP_VERSION__ }).catch((err) => {
         this.worker.terminate();
         this.ready = null;
         throw new Error(`Le moteur Python n'a pas pu démarrer : ${err.message}`);

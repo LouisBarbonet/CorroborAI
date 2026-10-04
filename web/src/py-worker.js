@@ -46,7 +46,8 @@ async function fetchOk(url, as = "json") {
 }
 
 const handlers = {
-  async init({ base }) {
+  async init({ base, version }) {
+    const v = `?v=${encodeURIComponent(version || "dev")}`; // contournement du cache : moteur = version du site
     progress("Téléchargement de Pyodide (Python dans le navigateur)…");
     self.importScripts(`${PYODIDE_URL}pyodide.js`);
     py = await self.loadPyodide({ indexURL: PYODIDE_URL });
@@ -55,7 +56,7 @@ const handlers = {
     progress("Installation d'openpyxl et ftfy…");
     await py.pyimport("micropip").install(["openpyxl", "ftfy"]);
     progress("Chargement du moteur CorroborIA et des extractions…");
-    const bundle = await fetchOk(new URL("py/bundle.json", base));
+    const bundle = await fetchOk(new URL(`py/bundle.json${v}`, base));
     for (const [path, content] of Object.entries(bundle.files)) {
       const full = `/home/pyodide/${path}`;
       py.FS.mkdirTree(full.slice(0, full.lastIndexOf("/")));
@@ -63,8 +64,8 @@ const handlers = {
     }
     const dataDir = "/home/pyodide/corroborai-participants";
     py.FS.mkdirTree(dataDir);
-    for (const name of await fetchOk(new URL("data/index.json", base))) {
-      py.FS.writeFile(`${dataDir}/${name}`, await fetchOk(new URL(`data/${encodeURIComponent(name)}`, base), "bytes"));
+    for (const name of await fetchOk(new URL(`data/index.json${v}`, base))) {
+      py.FS.writeFile(`${dataDir}/${name}`, await fetchOk(new URL(`data/${encodeURIComponent(name)}${v}`, base), "bytes"));
     }
     py.runPython(DRIVER);
     return { version: py.version };
