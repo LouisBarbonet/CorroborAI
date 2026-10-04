@@ -1,44 +1,44 @@
 {
- "genere_le": "2026-10-03T22:47:16",
+ "genere_le": "2026-10-03T23:53:16",
  "reponses": [
   {
    "question": "Quelles sont les vraies anomalies à investiguer en priorité ?",
-   "reponse": "Les anomalies prioritaires à investiguer concernent l'absence d'affectation temporaire [1545850/affectation], les erreurs de dérivation des codes de contrat [2762457/contractTypeCode] [3712987/contractTypeCode] [4625374/contractTypeCode] [7254364/contractTypeCode], et les propagations incorrectes de dates d'effet d'affectation basées sur le dernier détail du poste au lieu de la date initiale [9989151/assignmentStartDate] [4402456/assignmentStartDate] [3241002/assignmentStartDate]. D'autres cas incluent des incohérences code/libellé de site [3241002/siteName] [6035643/siteName], ainsi que des dépassements d'horaires et des courriels classés à valider [R-EMAIL].",
+   "reponse": "Les vraies anomalies prioritaires identifiées concernent les codes contrats, les dates d'affectation et l'absence d'affectation temporaire. On trouve notamment l'absence de l'affectation temporaire pour le poste 45985 [1545850/affectation], des erreurs de code contrat pour les postes 30106 [2762457/contractTypeCode], 86337 [3712987/contractTypeCode], 43478 [4625374/contractTypeCode] et 14553 [7254364/contractTypeCode], ainsi que des écarts sur la date d'effet de l'affectation pour les postes 31109 [9989151/assignmentStartDate], 26586 [4402456/assignmentStartDate] et 88622 [3241002/assignmentStartDate].",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
    "question": "Pourquoi le contractTypeCode de 2762457 est-il une anomalie ?",
-   "reponse": "Le contractTypeCode de l'employé 2762457 est une anomalie [2762457/contractTypeCode] car le code reçu WHX correspond à la condition « SI EMPTP_CD=\"O\" (Occasionnel - Surnuméraire) --> Mettre \"WHX\" », alors que la source indique {'EMPTP_CD': 'V', 'PERM_IND': '1', 'FT_IND': '1'} (→ JWN) [2762457/contractTypeCode]. Le type d'employé n'a pas été mis à jour ou a été mal dérivé [2762457/contractTypeCode].",
+   "reponse": "Pour l'employé 2762457, le code reçu WHX correspond à la condition « SI EMPTP_CD=\"O\" (Occasionnel - Surnuméraire) --> Mettre \"WHX\" », alors que la source indique {'EMPTP_CD': 'V', 'PERM_IND': '1', 'FT_IND': '1'} (→ JWN) [2762457/contractTypeCode]. Le type d'employé n'a pas été mis à jour ou a été mal dérivé, ce qui constitue une anomalie selon la règle [R-CONTRACT].",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
    "question": "Quelle affectation manque dans le Système B ?",
-   "reponse": "L'affectation temporaire absente dans le Système B concerne l'employé [1545850/affectation] (poste 45985, emploi 6585, entrée 2025-09-22) [1545850/affectation].",
+   "reponse": "L'affectation temporaire de l'employé pour le poste 45985 (entrée 2025-09-22) est absente du Système B [1545850/affectation].",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
-   "question": "Pourquoi les courriels sont-ils des anomalies à valider ?",
-   "reponse": "Les courriels sont classés comme anomalies à valider car l'adresse respecte la structure de la règle mais utilise un identifiant différent du matricule, ce qui constitue une erreur de construction ou un artefact de l'anonymisation des données [R-EMAIL].",
+   "question": "Pourquoi les courriels sont-ils des anomalies ?",
+   "reponse": "Les courriels sont classés comme anomalies [2911996/contactEmail] car l'identifiant utilisé dans l'adresse (par exemple 10446) ne correspond pas au matricule de l'employé (par exemple 2911996), ce qui viole la règle [R-EMAIL] [2911996/contactEmail]. Loto-Québec a confirmé qu'il s'agit d'une erreur d'anonymisation du jeu de test [R-EMAIL].",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
    "question": "Pourquoi statusReasonCode passe de 807 à 170 pour 7603160 ?",
-   "reponse": "L'écart s'explique par la règle [R-STATUS-CAD] : pour une absence (code 2), une jointure avec le motif est effectuée, transformant le CodeRaisonStatut 807 du Système A en code Remphor 170 dans le Système B [7603160/statusReasonCode].",
+   "reponse": "Pour l'employé [7603160/statusReasonCode], l'écart est expliqué par la règle [R-STATUS-CAD] : l'employé est en absence (code 2), ce qui déclenche une jointure sur le motif (CodeRaisonStatut 807) pour le convertir vers le code Remphor 170 [7603160/statusReasonCode].",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
    "question": "Pourquoi les heures de 2911996 sont-elles à valider ?",
-   "reponse": "Les heures de 2911996 sont à valider car le Système B conserve les heures contractuelles du poste (40) au lieu de la norme de l'employé (35 pour weeklyHoursOverride et 8 au lieu de 7 pour dailyHoursOverride) [2911996/weeklyHoursOverride] [2911996/dailyHoursOverride], ce qui indique que l'override ne semble pas transmis [2911996/weeklyHoursOverride].",
+   "reponse": "Pour l'employé 2911996, les heures hebdomadaires et quotidiennes présentent un écart classé « à valider par un expert » sous la règle [R-DIRECT] ([2911996/weeklyHoursOverride], [2911996/dailyHoursOverride]). La cause est que le Système B conserve les heures contractuelles du poste (40 pour l'hebdomadaire, 8 pour le quotidien) au lieu de la norme de l'employé (35 et 7) : l'override ne semble pas transmis, et l'expert doit confirmer (un horaire réduit pouvant être géré autrement).",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
    "question": "Pourquoi assignmentStartDate utilise la date la plus récente ?",
-   "reponse": "Suite à une calibration, le texte du mapping de la date d'effet de l'affectation indiquait la date la plus ancienne, mais l'analyse des données a montré que 19 sur 22 concordances suivaient l'interprétation « plus récente » [R-ASSIGN-START]. Cette option a donc été retenue pour le paramètre ASSIGN_START_MODE, en attente de confirmation par l'équipe fonctionnelle [R-ASSIGN-START].",
+   "reponse": "Le texte du mapping spécifiait la date la plus ancienne, mais concordance avec le Système B a donné 0/22 pour la littérale contre 19/22 pour la plus récente [R-ASSIGN-START]. Les données du Système B suivant massivement l'interprétation « plus récente », cette option a été retenue (paramètre ASSIGN_START_MODE), sous réserve de confirmation avec l'équipe fonctionnelle [R-ASSIGN-START].",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
    "question": "Comment l'IA est-elle utilisée dans CorroborIA ?",
-   "reponse": "L'IA intervient au niveau 3 du pipeline pour arbitrer les écarts non tranchés par les règles, diagnostiquer la cause probable des anomalies, prioriser les cas via scikit-learn (LogisticRegression et IsolationForest), rédiger la synthèse par cause racine avec Gemini, calibrer une règle ambiguë contre les données, et apprendre des corrections des experts. Les niveaux 1 et 2 demeurent quant à eux 100 % déterministes.",
+   "reponse": "L'IA est utilisée dans CorroborIA à plusieurs niveaux : (a) au niveau 3 pour arbitrer les écarts qu'aucune règle ne tranche, comme les libellés d'emploi pseudonymisés et les heures, (b) pour diagnostiquer la cause probable des anomalies, (c) pour prioriser les anomalies via scikit-learn, (d) pour rédiger la synthèse par cause racine avec Gemini, (e) pour calibrer une règle ambiguë contre les données, et (f) pour apprendre des corrections des experts.",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   },
   {
@@ -48,7 +48,7 @@
   },
   {
    "question": "Comment un expert peut-il corriger un verdict ?",
-   "reponse": "Un expert fonctionnel peut corriger un verdict (portant sur un cas ou un motif) et cette correction devient alors une règle apprise par le moteur.",
+   "reponse": "Un expert peut corriger un verdict (portant sur un cas ou un motif) et cette correction devient une règle apprise.",
    "fournisseur": "gemini/gemini-flash-lite-latest"
   }
  ]

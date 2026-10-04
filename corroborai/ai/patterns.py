@@ -94,11 +94,13 @@ def assess_email(ctx: R.Ctx, exp: str, g: dict) -> Proposal:
         sig.append("plusieurs adresses différentes pour le même matricule")
     if ok and ident and ident != mat:
         sig.append(f"identifiant {ident} ≠ matricule {mat} (le code doit être le matricule, précision de Loto-Québec)")
-        return Proposal(ANOMALIE, 0.6, sig,
+        sig.append("cause confirmée par Loto-Québec pour ce jeu de test : erreur d'anonymisation des données")
+        return Proposal(ANOMALIE, 0.9, sig,
                         f"L'adresse respecte la structure de la règle (initiale, nom, identifiant + 3 derniers chiffres, domaine, "
-                        f"adresse unique) mais l'identifiant utilisé ({ident}) n'est pas le matricule {mat}. Erreur de construction "
-                        f"du courriel ou artefact de l'anonymisation des données : à confirmer par un expert.",
-                        "email:identifiant_different_matricule", a_valider=True)
+                        f"adresse unique) mais l'identifiant utilisé ({ident}) n'est pas le matricule {mat} : la règle R-EMAIL "
+                        f"n'est pas respectée. Cause confirmée par Loto-Québec pour ce jeu de test : erreur d'anonymisation des "
+                        f"données. En production, ce cas signalerait une erreur de construction du courriel.",
+                        "email:identifiant_different_matricule")
     return Proposal(ANOMALIE, 0.95, sig, "L'adresse ne respecte pas la structure attendue par la règle de construction du courriel.",
                     "email:structure_non_conforme")
 

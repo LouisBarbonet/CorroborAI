@@ -49,7 +49,8 @@ def build_context(res: Result) -> str:
         "Courriel [R-EMAIL] : précision de Loto-Québec, le « code » de la règle est le matricule (personId) et le préfixe "
         "d'environnement (ex. « dev-08-v2_ ») peut être ajouté côté destination : il est accepté. Les 22 adresses de "
         "destination respectent la structure de la règle mais utilisent un identifiant différent du matricule : anomalies "
-        "« à valider » de faible priorité (erreur de construction ou artefact de l'anonymisation, à confirmer).",
+        "de faible priorité. Loto-Québec a confirmé qu'il s'agit d'une erreur d'anonymisation du jeu de test et a souhaité "
+        "que ce cas soit inclus dans la détermination des anomalies (en production, ce serait une erreur de construction du courriel).",
         "Les fichiers sources sont en lecture seule (contrôle sha256). Le LLM ne reçoit que des valeurs anonymisées minimales.",
         "",
         "## Résultats sur les extractions fournies",
@@ -75,7 +76,7 @@ def build_context(res: Result) -> str:
                      f"Cause : {_short(f.diagnostic or f.justification)}")
     if grouped:
         ex = grouped[0]
-        lines.append(f"- Courriels ({len(grouped)} cas, règle [R-EMAIL], à valider par un expert, priorités "
+        lines.append(f"- Courriels ({len(grouped)} cas, règle [R-EMAIL], cause confirmée : erreur d'anonymisation du jeu de test, priorités "
                      f"{min(g.priorite for g in grouped)}-{max(g.priorite for g in grouped)}) : {' '.join(ref(g) for g in grouped)}. "
                      f"Exemple {ref(ex)} : attendu « {ex.valeur_attendue} », reçu « {ex.valeur_b} ». Cause : {_short(ex.diagnostic, 300)}")
 

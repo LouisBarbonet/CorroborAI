@@ -80,11 +80,13 @@ def test_courriel_prefixe_optionnel_accepte():
     assert N.split_env_prefix("pnom1545850850@loto-quebec.com") == (None, "pnom1545850850@loto-quebec.com")
 
 
-def test_courriel_identifiant_different_du_matricule_a_valider(result):
+def test_courriel_identifiant_different_du_matricule_anomalie(result):
+    # Loto-Québec : erreur d'anonymisation du jeu de test, mais cas à inclure dans la détermination des anomalies
     emails = [f for f in result.findings if f.champ_b == "contactEmail"]
     assert len(emails) == 22
     for f in emails:
-        assert f.verdict == ANOMALIE and f.a_valider and f.niveau.startswith("2")
+        assert f.verdict == ANOMALIE and not f.a_valider and f.niveau.startswith("2")
+        assert "anonymisation" in f.diagnostic
         assert f.signature == "email:identifiant_different_matricule"
         assert any("préfixe" in s for s in f.ia["signaux"])
     # faible priorité : ne masque pas les autres anomalies
